@@ -3,18 +3,26 @@
 #include "file_util.h"
 #include "extra.h"
 
-int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE * list_file); //Scans for tokens.
+int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file); //Scans for tokens.
 
+// Gets parameters from the command prompt (if they exist) and stores them in "inputFilePath" and "outputFilePath" respectively
 void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFilePath);
 
-int main(int argc, char** argv) 
+int main(int argc, char** argv)
 {
     char inputFilePath[MAX_PATH_SIZE] = { '\0' };
     char outputFilePath[MAX_PATH_SIZE] = { '\0' };
-    char** reservedNames = (char**)malloc(MAX_PATH_SIZE * sizeof(char) * 2);
-    
-    reservedNames[0] = "list.out";
-    reservedNames[1] = "temp.out";
+
+    // Allocates space for 2 pointers
+    // This pointer to an array of pointers is used so that any reserved file names can easily be passed into "getFiles(...)"
+    char** reservedFileNames = (char**)calloc(2, sizeof(char*));
+    // Allocates space for a reserved file path
+    reservedFileNames[0] = (char*)calloc(MAX_PATH_SIZE, sizeof(char));
+    // Allocates space for a reserved file path
+    reservedFileNames[1] = (char*)calloc(MAX_PATH_SIZE, sizeof(char));
+
+    strcpy(reservedFileNames[0], "list.out");
+    strcpy(reservedFileNames[1], "temp.out");
 
     int invalid = 0;
 
@@ -23,44 +31,56 @@ int main(int argc, char** argv)
     FILE* tempFilePtr = NULL;
     FILE* listFilePtr = NULL;
 
+    // Displays our group title
     displayTitle();
+    // Get command line parameters if they exist
     getCmdParameters(argc, argv, inputFilePath, outputFilePath);
-    if (invalid = getFiles(inputFilePath, outputFilePath, 2, (const char**)reservedNames) != 1)
+
+    // Prompt the user for any missing and/or invalid file paths (returns 0 if the user enters valid file paths)
+    // "reservedNames" is explicitly cast as "const char**" because DevCPP complains
+    if ((invalid = getFiles(inputFilePath, outputFilePath, 2, (const char**)reservedFileNames)) == 0)
     {
         inputFilePtr = fileOpen(inputFilePath, "r");
         outputFilePtr = fileOpen(outputFilePath, "w");
+
+        // Defines a temp buffer for holding the outputFilePaths' directory
         char temp[MAX_PATH_SIZE];
         getFileDirectory(temp, outputFilePath);
-        changeFileDirectory(reservedNames[0], temp);
-        listFilePtr = fileOpen(reservedNames[0], "w");
-        changeFileDirectory(reservedNames[1], temp);
-        tempFilePtr = fileOpen(reservedNames[1], "w");
-        printf("\n");
+
+        // Gives the listing file the same directory as the output file
+        changeFileDirectory(reservedFileNames[0], temp);
+        listFilePtr = fileOpen(reservedFileNames[0], "w");
+
+        // Gives the temporary file the same directory as the output file
+        changeFileDirectory(reservedFileNames[1], temp);
+        tempFilePtr = fileOpen(reservedFileNames[1], "w");
     }
 
-    if (!invalid && listFilePtr != NULL && tempFilePtr != NULL)
+    if (invalid == 0 && listFilePtr != NULL && tempFilePtr != NULL)
     {
         // Do scanner stuff        
-        printf("\nSCANNER STUFF HERE!");
-        
-        
+        printf("\nSCANNER STUFF HERE!\n");
+
+
     }
-    
-    printf("\nSCANNER STUFF HERE!");
-    
+
     fileClose(inputFilePtr, inputFilePath);
     fileClose(outputFilePtr, outputFilePath);
-    fileClose(listFilePtr, reservedNames[0]);
-    fileClose(tempFilePtr, reservedNames[1]);
+    fileClose(listFilePtr, reservedFileNames[0]);
+    fileClose(tempFilePtr, reservedFileNames[1]);
 
     //if (fileExists("temp.out"))
         //remove("temp.out");
 
-    free(reservedNames);
+    // What's allocated must be deallocated!
+    free(reservedFileNames[1]);
+    free(reservedFileNames[0]);
+    free(reservedFileNames);
 
     return 0;
 }
 
+// Gets parameters from the command prompt (if they exist) and stores them in "inputFilePath" and "outputFilePath" respectively
 void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFilePath)
 {
     // Both input and output files entered

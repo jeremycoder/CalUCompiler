@@ -54,10 +54,12 @@ int fileExists(const char* filename)
     return returnVal;
 }
 
+// Returns a file pointer to a file if it was successfully opened and displays a message
+// If it fails to open an error message is displayed
 FILE* fileOpen(const char* filename, const char* mode)
 {
     FILE* file = fopen(filename, mode);
-    
+
     if (file == NULL)
     {
         printf("\nFailed to open %s", filename);
@@ -67,10 +69,11 @@ FILE* fileOpen(const char* filename, const char* mode)
     {
         printf("\nSuccessfully opened %s", filename);
     }
-    
+
     return file;
 }
 
+// Checks if the filePtr is pointing to anything and closes the file while displaying a close message
 int fileClose(FILE* filePtr, char* filename)
 {
     if (filePtr != NULL)
@@ -133,6 +136,7 @@ void getLine(char* dest, const int maxLength)
     dest[maxLength] = '\0';
 }
 
+// Copies the file directory in "filename" into "dest"
 // Returns 1 if the filename contains a directory
 // Returns 0 if the directory is not in the filename
 int getFileDirectory(char* dest, const char* filename)
@@ -146,6 +150,7 @@ int getFileDirectory(char* dest, const char* filename)
             strncpy(dest, filename, strlen(filename) - strlen(strrchr(filename, '\\')) + 1);
             if (dest != NULL)
             {
+                dest[strlen(filename) - strlen(strrchr(filename, '\\')) + 1] = '\0';
                 returnVal = 1;
             }
         }
@@ -154,9 +159,10 @@ int getFileDirectory(char* dest, const char* filename)
     return returnVal;
 }
 
+// Copies the filename of "filename" with its extension but without its directory into "dest"
 // Returns 1 if the filename contains a directory
 // Returns 0 if the directory is not in the filename
-int getFileNameWithoutDirectory(char* dest, const char* filename)
+int getFileWithoutDirectory(char* dest, const char* filename)
 {
     int returnVal = 0;
 
@@ -166,7 +172,7 @@ int getFileNameWithoutDirectory(char* dest, const char* filename)
         {
             getFileDirectory(dest, filename);
             int directoryLength = strlen(dest);
-            int i;
+            unsigned int i;
             for (i = directoryLength; i < strlen(filename); i++)
                 dest[i - directoryLength] = filename[i];
             dest[strlen(filename) - directoryLength] = '\0';
@@ -182,7 +188,8 @@ int getFileNameWithoutDirectory(char* dest, const char* filename)
     return returnVal;
 }
 
-void getFileNameWithoutExtension(char* dest, const char* filename)
+// Copies the file name of "filename" without its extension of into "dest"
+void getFileWithoutExtension(char* dest, const char* filename)
 {
     if (hasFileExtension(filename))
     {
@@ -201,11 +208,11 @@ int changeFileExtension(char* filename, const char* extension)
 {
     int result = 0;
 
-    if (extension != NULL && extension[0] == '.') 
+    if (extension != NULL && extension[0] == '.')
     {
-        if (filename != NULL) 
+        if (filename != NULL)
         {
-            if (strchr(filename, '.')) 
+            if (strchr(filename, '.'))
             {
                 // Places a NULL character where the '.' is
                 filename[strlen(filename) - strlen(strchr(filename, '.'))] = '\0';
@@ -233,7 +240,7 @@ int changeFileDirectory(char* filename, const char* directory)
     {
         if (filename != NULL)
         {
-            getFileNameWithoutDirectory(filename, filename);
+            getFileWithoutDirectory(filename, filename);
 
             char currentChar;
             int dirLength = strlen(directory);
@@ -257,6 +264,8 @@ int changeFileDirectory(char* filename, const char* directory)
     }
     else
         result = -1;
+
+    return result;
 }
 
 // Prompts the user for input and output file paths and opens the files in their respective modes
@@ -281,7 +290,7 @@ int getInputFile(char* filePath)
     int gettingFileName = 1;
     int invalid = 0;
 
-    char* tempBuff = malloc(MAX_PATH_SIZE * sizeof(char));
+    char tempBuff[MAX_PATH_SIZE] = { "\0" };
 
     // Prompts the user for the input file name if it was not included as a parameter
     if (filePath[0] == '\0')
@@ -309,10 +318,7 @@ int getInputFile(char* filePath)
             // Opens the input file if it exists
             if (fileExists(filePath))
             {
-                //inputFilePtr = fileOpen(filePath, "r");
                 gettingFileName = 0;
-                //if (!inputFilePtr)
-                    //invalid = 1;
             }
             // Checks if there was anything entered for the input filename
             else
@@ -323,8 +329,6 @@ int getInputFile(char* filePath)
             }
         }
     }
-
-    free(tempBuff);
 
     return invalid;
 }
@@ -338,7 +342,6 @@ int getOutputFile(char* filePath, const char* defaultPath, const int resNameCoun
     int invalid = 0;
     char decision[2] = { "\0" };
     char tempBuff[MAX_PATH_SIZE] = { "\0" };
-    char tempBuff2[MAX_PATH_SIZE] = { "\0" };
 
     //Prompts the user for the ouptut file name if it was not included as a parameter
     if (filePath[0] == '\0')
@@ -365,21 +368,24 @@ int getOutputFile(char* filePath, const char* defaultPath, const int resNameCoun
             printf("The output file is now %s\n", filePath);
         }
 
-        getFileNameWithoutDirectory(tempBuff, filePath);
+        getFileWithoutDirectory(tempBuff, filePath);
         int i;
+        // Ensures that "filePath"'s name does not match any of the reserved names
         for (i = 0; i < resNameCount; i++)
         {
-            strcpy(tempBuff2, reservedNames[i]);
-            if (!strcmp(tempBuff, tempBuff2))
+            if (!strcmp(tempBuff, reservedNames[i]))
             {
                 filePath[0] = '\0';
-                printf("\nThe name \"%s\" cannot be used!\n", tempBuff2);
+                printf("\nThe name \"%s\" cannot be used!\n", reservedNames[i]);
                 i = resNameCount;
+                invalid = 1;
+                gettingFileName = 0;
             }
         }
         // Checks if an output file of that name already exists
-        if (!fileExists(filePath))
+        if (fileExists(filePath) == 0)
         {
+            // A valid name was found
             gettingFileName = 0;
         }
         // A file with that name already exists
