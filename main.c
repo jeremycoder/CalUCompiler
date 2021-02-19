@@ -2,7 +2,6 @@
 #include <string.h>
 #include "file_util.h"
 #include "extra.h"
-#include "tokens.h"
 
 int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE * list_file); //Scans for tokens. Check "tokens.h"
 
