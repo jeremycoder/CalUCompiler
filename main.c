@@ -3,7 +3,7 @@
 #include "file_util.h"
 #include "extra.h"
 
-int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE * list_file); //Scans for tokens. Check "tokens.h"
+int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE * list_file); //Scans for tokens.
 
 void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFilePath);
 
