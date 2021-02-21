@@ -3,7 +3,8 @@
 #include "file_util.h"
 #include "extra.h"
 
-int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file); //Scans for tokens.
+//Scans input file for tokens and returns a token
+int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file); 
 
 // Gets parameters from the command prompt (if they exist) and stores them in "inputFilePath" and "outputFilePath" respectively
 void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFilePath);
@@ -67,16 +68,18 @@ int main(int argc, char** argv)
         	infilePtr = OpenFile(inputfile); //Open input file and get input file pointer
 			outfilePtr = OpenFile(outputfile); //Open output file and get output file pointer
 			listfilePtr = OpenFile(listingfile); //Open listing file and get listing file pointer
-			//The operations above should/could be done in a routine called start_up	
+			//The operations above should/could be done in a routine called start_up
+			
+			//char * errorBuffer[50][300]; //array of characters to hold scanning errors
         	
         	while (rec_token != SCANEOF) //Check token received from scanner
         	{
         		rec_token = scanner(); //Scanner returns token
         		strcpy(tokenBuffer, rec_token); //Copy received token to tokenBuffer
+        		identify token
         		Write tokenBuffer to outputfile        		
-        	}
-        	
-        	close all open files; //Well files are closed below        	
+        	}       	
+             	
         
         */
 
@@ -123,3 +126,160 @@ void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFi
     }
 }
 
+//Scans input file for tokens and returns a token
+int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file)
+{
+	// buffer[0] = '\0'; //Clear token buffer
+	//char c = '0'; //Initialize variable to read chars from inputfile
+	//char * listingLine[300];	
+	
+	/*
+	
+	while (c != EOF)
+	{
+		read c from inputfile
+		skip any whitespace
+		
+		while (c is alpha) //An identifier - starts with a-zA-Z
+		{
+			copy c to token buffer
+			copy c to listing line
+			filepos++ ?
+			
+			while (next char is alphanumeric) //An identifier as in as23 etc
+			{
+				copy c to token buffer
+				copy c to listing line
+				filepos++ ?
+				read c
+			}
+			
+			while (c is NOT alphanumeric) //End of identifier
+			{
+				int myToken = check_reserved(token buffer); //Dr. P supplied routine. Just returns token
+				return myToken; //As ID
+			}
+						
+		} //end while (c is alpha)
+		
+		while (c == '-') //Minus sign
+		{
+			if (next char == '-') //A comment
+			{
+				while (c != '\n') //Process comment until end of line
+				{
+					copy c to listingLine;
+					filepos++ ?
+				}				
+			}
+			
+			if (next char is numeric) //A negative number
+			{
+				copy c i.e. '-' to token buffer
+				copy c to listingLine
+				
+				while (c is numeric) //Copy the rest of digits
+				{
+					copy c token buffer
+					copy c to listingLine
+					read c
+				}
+				
+				int myToken = check_reserved(token buffer); //Dr. P supplied routine. Just returns token
+				return myToken; //As INTLITERAL 
+			}
+			
+			int myToken = check_reserved(token buffer); //Dr. P supplied routine. Just returns token
+			return myToken; //As MINUSOP
+		}
+		
+		while (c == numeric) //A number
+		{
+			copy c to token buffer
+			copy c to listing line
+			
+			if (c is NOT numeric) //End of number
+			{
+				int myToken = check_reserved(token buffer); //Dr. P supplied routine. Just returns token
+				return myToken; //As INTLITERAL
+			}
+		}
+		
+		//Check for other tokens
+		switch (c)
+		{
+			case '(':
+				return token AS LPAREN;
+				
+			case ')':
+				return token AS RPAREN;
+				
+			case ';':
+				return token AS SEMICOLON;
+			
+			case ',':
+				return token AS COMMA;
+			
+			case '+':
+				return token AS PLUSOP;
+			
+			case '*':
+				return token AS MULTOP;
+			
+			case '/':
+				return token AS DIVOP
+			
+			case '|':
+				return token AS NOTOP;
+			
+			case '=':
+				return token AS EQUALOP;			
+			
+			//Operators with two characters
+			case ':'
+				if (next char is '=')
+				{
+					return token AS ASSIGNOP;
+				} 
+				else 
+				{
+					return as ERROR ?
+				};			
+			
+			case '<':
+				if (next char is '=')
+				{
+					return token AS LESSEQUALOP;
+				} 
+				else if (next char is '>'
+				{
+					return token as NOTEQUALOP;
+				} 
+				else
+				{
+					return token as LESSOP;
+				}
+			
+			case '>':
+				if (next char is '=')
+				{
+					return token AS GREATEREQUALOP;
+				} 
+				else
+				{
+					return token as GREATEROP
+				};
+			
+			case 'EOF':
+				return token as SCANEOF;
+			
+			default:
+				return token as ERROR;			
+		}		
+	}
+	
+	write to listing file
+	lineCount++	
+	
+	*/	
+}
