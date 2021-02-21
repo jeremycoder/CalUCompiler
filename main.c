@@ -58,8 +58,27 @@ int main(int argc, char** argv)
 
     if (invalid == 0 && listFilePtr != NULL && tempFilePtr != NULL)
     {
+    	// char * tokenBuffer[50]; //Holds tokens received from scanner
         // Do scanner stuff        
-        printf("\nSCANNER STUFF HERE!\n");
+        printf("\nStarting scanner...\n");        
+        
+        //Algorithm for main.c
+        /*
+        	infilePtr = OpenFile(inputfile); //Open input file and get input file pointer
+			outfilePtr = OpenFile(outputfile); //Open output file and get output file pointer
+			listfilePtr = OpenFile(listingfile); //Open listing file and get listing file pointer
+			//The operations above should/could be done in a routine called start_up	
+        	
+        	while (rec_token != SCANEOF) //Check token received from scanner
+        	{
+        		rec_token = scanner(); //Scanner returns token
+        		strcpy(tokenBuffer, rec_token); //Copy received token to tokenBuffer
+        		Write tokenBuffer to outputfile        		
+        	}
+        	
+        	close all open files; //Well files are closed below        	
+        
+        */
 
 
     }
