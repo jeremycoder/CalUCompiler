@@ -68,47 +68,46 @@ int main(int argc, char** argv)
     	char temp[12];
     	char tokenType [20] = {'\0'};		 
     	char outputBuffer [70] = {'\0'}; //To print to output file
-		char tokenBuffer[50] = {'\0'}; //To hold tokens from input file		
-		int rec_token = 0; //Token received from scanner
-		char * errorBuffer[50][300]; //To hold scanning errors
-		int lineCount = 0;           
+	char tokenBuffer[50] = {'\0'}; //To hold tokens from input file		
+	int rec_token = 0; //Token received from scanner
+	char * errorBuffer[50][300]; //To hold scanning errors
+		           
         
     	while (rec_token != SCANEOF)
     	{
-    		//Reset token type string and scan for token
-    		tokenType[0] = '\0';
-    		
-    		//Token is received as an integer
-    		rec_token = scanner(tokenBuffer, inputFilePtr, outputFilePtr, listFilePtr);
+		//Reset token type string and scan for token
+		tokenType[0] = '\0';
+
+		//Token is received as an integer
+		rec_token = scanner(tokenBuffer, inputFilePtr, outputFilePtr, listFilePtr);
 			
-			//Increment line counter
-			lineCount++; 
 			
-			//Get token type as string	
+			
+		//Get token type as string	
     		getTokenType(rec_token, tokenType);
     					   		
     		//Build output buffer: Add "token number: "
-			strcpy(outputBuffer, "token number: ");
+		strcpy(outputBuffer, "token number: ");
+
+		//Turn token into string and add to output buffer
+		sprintf(temp, "%d", rec_token);
+		strcat(outputBuffer, temp);
+
+		//Add tab and "token type: " to output buffer
+		strcat(outputBuffer, "\t");
+		strcat(outputBuffer, "token type: ");
+		strcat(outputBuffer, tokenType);		
+
+		//Add two tabs, "actual token: ", and actual token to output buffer
+		strcat(outputBuffer, "\t\t");
+		strcat(outputBuffer, "actual token: \n");
+		strcat(outputBuffer, tokenBuffer); //actual token will be in token buffer
 			
-			//Turn token into string and add to output buffer
-			sprintf(temp, "%d", rec_token);
-			strcat(outputBuffer, temp);
-			
-			//Add tab and "token type: " to output buffer
-			strcat(outputBuffer, "\t");
-			strcat(outputBuffer, "token type: ");
-			strcat(outputBuffer, tokenType);		
-			
-			//Add two tabs, "actual token: ", and actual token to output buffer
-			strcat(outputBuffer, "\t\t");
-			strcat(outputBuffer, "actual token: \n");
-			strcat(outputBuffer, tokenBuffer); //actual token will be in token buffer
-			
-			//Write output buffer to output file
-			if (fputs(outputBuffer, outputFilePtr) != 0)
-			{
-				printf("\nERROR writing to output file...");
-			}		
+		//Write output buffer to output file
+		if (fputs(outputBuffer, outputFilePtr) != 0)
+		{
+			printf("\nERROR writing to output file...");
+		}		
 			    		
     	} 
     }
