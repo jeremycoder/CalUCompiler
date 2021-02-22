@@ -2,9 +2,13 @@
 #include <string.h>
 #include "file_util.h"
 #include "extra.h"
+#include "token.h"
 
 //Scans input file for tokens and returns a token
 int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file); 
+
+//Given enum value of token, and a string, returns string value of token
+char * getTokenType(int token, char * str);
 
 // Gets parameters from the command prompt (if they exist) and stores them in "inputFilePath" and "outputFilePath" respectively
 void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFilePath);
@@ -59,31 +63,54 @@ int main(int argc, char** argv)
 
     if (invalid == 0 && listFilePtr != NULL && tempFilePtr != NULL)
     {
-    	// char * tokenBuffer[50]; //Holds tokens received from scanner
-        // Do scanner stuff        
-        printf("\nStarting scanner...\n");        
+    	/* -- WORKING ON THE SCANNER --	 */
+    	    	
+    	char temp[12];
+    	char tokenType [20] = {'\0'};		 
+    	char outputBuffer [70] = {'\0'}; //To print to output file
+		char tokenBuffer[50] = {'\0'}; //To hold tokens from input file		
+		int rec_token = 0; //Token received from scanner
+		char * errorBuffer[50][300]; //To hold scanning errors
+		int lineCount = 0;           
         
-        //Algorithm for main.c
-        /*
-        	infilePtr = OpenFile(inputfile); //Open input file and get input file pointer
-			outfilePtr = OpenFile(outputfile); //Open output file and get output file pointer
-			listfilePtr = OpenFile(listingfile); //Open listing file and get listing file pointer
-			//The operations above should/could be done in a routine called start_up
+    	while (rec_token != SCANEOF)
+    	{
+    		//Reset token type string and scan for token
+    		tokenType[0] = '\0';
+    		
+    		//Token is received as an integer
+    		rec_token = scanner(tokenBuffer, inputFilePtr, outputFilePtr, listFilePtr);
 			
-			//char * errorBuffer[50][300]; //array of characters to hold scanning errors
-        	
-        	while (rec_token != SCANEOF) //Check token received from scanner
-        	{
-        		rec_token = scanner(); //Scanner returns token
-        		strcpy(tokenBuffer, rec_token); //Copy received token to tokenBuffer
-        		identify token
-        		Write tokenBuffer to outputfile        		
-        	}       	
-             	
-        
-        */
-
-
+			//Increment line counter
+			lineCount++; 
+			
+			//Get token type as string	
+    		getTokenType(rec_token, tokenType);
+    					   		
+    		//Build output buffer: Add "token number: "
+			strcpy(outputBuffer, "token number: ");
+			
+			//Turn token into string and add to output buffer
+			sprintf(temp, "%d", rec_token);
+			strcat(outputBuffer, temp);
+			
+			//Add tab and "token type: " to output buffer
+			strcat(outputBuffer, "\t");
+			strcat(outputBuffer, "token type: ");
+			strcat(outputBuffer, tokenType);		
+			
+			//Add two tabs, "actual token: ", and actual token to output buffer
+			strcat(outputBuffer, "\t\t");
+			strcat(outputBuffer, "actual token: \n");
+			strcat(outputBuffer, tokenBuffer); //actual token will be in token buffer
+			
+			//Write output buffer to output file
+			if (fputs(outputBuffer, outputFilePtr) != 0)
+			{
+				printf("\nERROR writing to output file...");
+			}		
+			    		
+    	} 
     }
 
     fileClose(inputFilePtr, inputFilePath);
@@ -129,18 +156,26 @@ void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFi
 //Scans input file for tokens and returns a token
 int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file)
 {
-	// buffer[0] = '\0'; //Clear token buffer
-	//char c = '0'; //Initialize variable to read chars from inputfile
-	//char * listingLine[300];	
-	
-	/*
-	
-	while (c != EOF)
-	{
-		read c from inputfile
-		skip any whitespace
+	printf("\n\nScanner here...\n\n");
+	buffer[0] = '\0'; //Clear token buffer
+	int c = '0'; //Initialize variable to read chars from inputfile
+	char listingBuffer[300] = {'\0'};
+	char tempStr [10] = {'\0'};
 		
-		while (c is alpha) //An identifier - starts with a-zA-Z
+	//Read each character in input file
+	while (c != EOF)
+	{	
+		//Read character from file
+		c = getc(in_file);
+		
+		//Add char to temp string		
+		sprintf(tempStr, "%c", c);	
+		
+		//Add temp string to listing buffer		
+		strcat(listingBuffer, tempStr);			
+		printf("%c", c);
+		
+		/* while (c is alpha) //An identifier - starts with a-zA-Z
 		{
 			copy c to token buffer
 			copy c to listing line
@@ -275,11 +310,176 @@ int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file)
 			
 			default:
 				return token as ERROR;			
-		}		
-	}
+		} */
 	
-	write to listing file
-	lineCount++	
+		//If reached end of line, print to listing file
+		if (c == '\n')
+		{						
+			//Write listing buffer to listing file
+			if (fputs(listingBuffer, list_file) != 0)
+			{
+				printf("\nERROR writing to listing file...");				 
+			}
+			
+			//Reset listing buffer
+			listingBuffer[0] = '\0';
+			
+		}
+			
+		if (c == EOF)
+		{
+			return SCANEOF;
+		}
+		
+				
+	}	
 	
-	*/	
 }
+
+//Given enum value of token, and a string, returns string value of token
+char * getTokenType(int token, char * str)
+{
+	//Receive string
+	
+	//To upper identifier
+	
+	//Then check token
+	
+	switch(token)
+	{	
+		case 0:
+			strcpy(str, "BEGIN");
+			break;
+		
+		case 1:
+			strcpy(str, "END");
+			break;
+		
+		case 2:
+			strcpy(str, "READ");
+			break;
+		
+		case 3:
+			strcpy(str, "WRITE");
+			break;
+		
+		case 4:
+			strcpy(str, "IF");
+			break;
+		
+		case 5:
+			strcpy(str, "THEN");
+			break;
+		
+		case 6:
+			strcpy(str, "ELSE");
+			break;
+		
+		case 7:
+			strcpy(str, "ENDIF");
+			break;
+		
+		case 8:
+			strcpy(str, "WHILE");
+			break;
+		
+		case 9:
+			strcpy(str, "ENDWHILE");
+			break;
+		
+		case 10:
+			strcpy(str, "ID");
+			break;
+		
+		case 11:
+			strcpy(str, "INTLITERAL");
+			break;
+		
+		case 12:
+			strcpy(str, "FALSEOP");
+			break;
+		
+		case 13:
+			strcpy(str, "TRUEOP");
+			break;
+		
+		case 14:
+			strcpy(str, "NULLOP");
+			break;
+		
+		case 15:
+			strcpy(str, "LPAREN");
+			break;
+		
+		case 16:
+			strcpy(str, "RPAREN");
+			break;
+		
+		case 17:
+			strcpy(str, "SEMICOLON");
+			break;
+		
+		case 18:
+			strcpy(str, "COMMA");
+			break;
+		
+		case 19:
+			strcpy(str, "ASSIGNOP");
+			break;
+		
+		case 20:
+			strcpy(str, "PLUSOP");
+			break;
+		
+		case 21:
+			strcpy(str, "MINUSOP");
+			break;
+		
+		case 22:
+			strcpy(str, "MULTOP");
+			break;
+		
+		case 23:
+			strcpy(str, "DIVOP");
+			break;
+		
+		case 24:
+			strcpy(str, "NOTOP");
+			break;
+		
+		case 25:
+			strcpy(str, "LESSOP");
+			break;
+		
+		case 26:
+			strcpy(str, "LESSEQUALOP");
+			break;
+		
+		case 27:
+			strcpy(str, "GREATEROP");
+			break;
+		
+		case 28:
+			strcpy(str, "GREATEREQUALOP");
+			break;
+		
+		case 29:
+			strcpy(str, "EQUALOP");
+			break;
+		
+		case 30:
+			strcpy(str, "NOTEQUALOP");
+			break;
+		
+		case 31:
+			strcpy(str, "SCANEOF");
+			break;
+		
+		case 32:
+			strcpy(str, "ERROR");					
+		
+	}
+			
+			
+}
+
