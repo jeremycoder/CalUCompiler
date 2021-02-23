@@ -25,7 +25,7 @@ int fileExists(const char* filename);
 FILE* fileOpen(const char* filename, const char* mode);
 
 // Checks if the filePtr is pointing to anything and closes the file while displaying a close message
-int fileClose(FILE* filePtr, char* filename);
+void fileClose(FILE* filePtr, char* filename);
 
 // Copies the data in "inputFile" into "outputFile"
 // Returns 1 if either "inputFile" or "outputFile" is NULL
@@ -33,7 +33,7 @@ int fileClose(FILE* filePtr, char* filename);
 int copyFileContents(FILE* inputFile, FILE* outputFile);
 
 // Forces stdin to point at either a new line or end of file character
-int flushInputs();
+void flushInputs();
 
 // Gets up to "maxLength" characters from stdin and copies them into "dest"
 // Places a NULL character in "dest" where it stopped reading from stdin

@@ -74,7 +74,7 @@ FILE* fileOpen(const char* filename, const char* mode)
 }
 
 // Checks if the filePtr is pointing to anything and closes the file while displaying a close message
-int fileClose(FILE* filePtr, char* filename)
+void fileClose(FILE* filePtr, char* filename)
 {
     if (filePtr != NULL)
     {
@@ -108,7 +108,7 @@ int copyFileContents(FILE* inputFile, FILE* outputFile)
 }
 
 // Forces stdin to point at either a new line or end of file character
-int flushInputs()
+void flushInputs()
 {
     char currentChar = getchar();
     while (currentChar != '\n' && currentChar != EOF)
@@ -225,6 +225,8 @@ int changeFileExtension(char* filename, const char* extension)
     }
     else
         result = -1;
+
+    return result;
 }
 
 // Changes the current file directory in "filename"
@@ -242,7 +244,6 @@ int changeFileDirectory(char* filename, const char* directory)
         {
             getFileWithoutDirectory(filename, filename);
 
-            char currentChar;
             int dirLength = strlen(directory);
             int filenameLength = strlen(filename);
 

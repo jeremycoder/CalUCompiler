@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "file_util.h"
 #include "extra.h"
 #include "token.h"
 
-//Scans input file for tokens and returns a token
-int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file); 
+//Scans input file for tokens and returns the next token
+int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* lineNum);
 
 //Given enum value of token, and a string, returns string value of token
 char * getTokenType(int token, char * str);
@@ -45,7 +46,7 @@ int main(int argc, char** argv)
     // "reservedNames" is explicitly cast as "const char**" because DevCPP complains
     if ((invalid = getFiles(inputFilePath, outputFilePath, 2, (const char**)reservedFileNames)) == 0)
     {
-        inputFilePtr = fileOpen(inputFilePath, "r");
+        inputFilePtr = fileOpen(inputFilePath, "rb"); // Must be in binary read mode for fseek to properly function
         outputFilePtr = fileOpen(outputFilePath, "w");
 
         // Defines a temp buffer for holding the outputFilePaths' directory
@@ -65,51 +66,18 @@ int main(int argc, char** argv)
     {
     	/* -- WORKING ON THE SCANNER --	 */
     	    	
-    	char temp[12];
-    	char tokenType [20] = {'\0'};		 
-    	char outputBuffer [70] = {'\0'}; //To print to output file
-	char tokenBuffer[50] = {'\0'}; //To hold tokens from input file		
-	int rec_token = 0; //Token received from scanner
-	char * errorBuffer[50][300]; //To hold scanning errors
-		           
+		char tokenBuffer[50] = {'\0'}; //To hold tokens from input file
+		int rec_token = 0; //Token received from scanner
+		int lineNum = 0; // To keep track of the input file's line number
+		//char * errorBuffer[50][300]; //To hold scanning errors    
         
     	while (rec_token != SCANEOF)
     	{
-		//Reset token type string and scan for token
-		tokenType[0] = '\0';
+			//Token is received as an integer
+			rec_token = scanner(tokenBuffer, inputFilePtr, outputFilePtr, listFilePtr, &lineNum);
 
-		//Token is received as an integer
-		rec_token = scanner(tokenBuffer, inputFilePtr, outputFilePtr, listFilePtr);
-			
-			
-			
-		//Get token type as string	
-    		getTokenType(rec_token, tokenType);
-    					   		
-    		//Build output buffer: Add "token number: "
-		strcpy(outputBuffer, "token number: ");
-
-		//Turn token into string and add to output buffer
-		sprintf(temp, "%d", rec_token);
-		strcat(outputBuffer, temp);
-
-		//Add tab and "token type: " to output buffer
-		strcat(outputBuffer, "\t");
-		strcat(outputBuffer, "token type: ");
-		strcat(outputBuffer, tokenType);		
-
-		//Add two tabs, "actual token: ", and actual token to output buffer
-		strcat(outputBuffer, "\t\t");
-		strcat(outputBuffer, "actual token: \n");
-		strcat(outputBuffer, tokenBuffer); //actual token will be in token buffer
-			
-		//Write output buffer to output file
-		if (fputs(outputBuffer, outputFilePtr) != 0)
-		{
-			printf("\nERROR writing to output file...");
-		}		
-			    		
-    	} 
+			//Note: Output file writing has been moved to the end of the scanner function
+    	}
     }
 
     fileClose(inputFilePtr, inputFilePath);
@@ -126,6 +94,18 @@ int main(int argc, char** argv)
     free(reservedFileNames);
 
     return 0;
+}
+
+// Returns 1 if the character is an alpha ASCII character, else returns 0
+int charIsAlpha(char c)
+{
+	return (c > 64 && c < 91) || (c > 96 && c < 123);
+}
+
+// Returns 1 if the character is a numberic ASCII character, else returns 0
+int charIsInt(char c)
+{
+	return c > 47 && c < 58;
 }
 
 // Gets parameters from the command prompt (if they exist) and stores them in "inputFilePath" and "outputFilePath" respectively
@@ -152,187 +132,291 @@ void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFi
     }
 }
 
-//Scans input file for tokens and returns a token
-int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file)
+//Scans input file for tokens and returns the next token
+//Should be called in a loop until the returned token is SCANEOF
+//When a token is returned "buffer" will contain the string form of the token
+int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* lineNum)
 {
 	printf("\n\nScanner here...\n\n");
 	buffer[0] = '\0'; //Clear token buffer
-	int c = '0'; //Initialize variable to read chars from inputfile
-	char listingBuffer[300] = {'\0'};
-	char tempStr [10] = {'\0'};
+	int token = -1;
+	char c = 0; //Initialize variable to read chars from inputfile
+
+	if (*lineNum < 1)
+	{
+		*lineNum = 1;
+		fputs("1.\t", list_file); // Places the first line number into the listing file
+	}
 		
 	//Read each character in input file
 	while (c != EOF)
-	{	
+	{
 		//Read character from file
 		c = getc(in_file);
-		
-		//Add char to temp string		
-		sprintf(tempStr, "%c", c);	
-		
-		//Add temp string to listing buffer		
-		strcat(listingBuffer, tempStr);			
-		printf("%c", c);
-		
-		/* while (c is alpha) //An identifier - starts with a-zA-Z
+
+		if (charIsAlpha(c)) //An identifier - starts with a-zA-Z
 		{
-			copy c to token buffer
-			copy c to listing line
-			filepos++ ?
-			
-			while (next char is alphanumeric) //An identifier as in as23 etc
+
+			long lastPos = 0;
+
+			while (charIsAlpha(c) || charIsInt(c)) //An identifier as in as23 etc
 			{
-				copy c to token buffer
-				copy c to listing line
-				filepos++ ?
-				read c
+				
+				lastPos = ftell(in_file);
+				strncat(buffer, &c, 1); //copy c to token buffer
+				c = getc(in_file);
+				
 			}
+
+			token = check_reserved(buffer); //Checks if the token matches a reserved token first
+			if (token == -1)
+				token = ID;
 			
-			while (c is NOT alphanumeric) //End of identifier
-			{
-				int myToken = check_reserved(token buffer); //Dr. P supplied routine. Just returns token
-				return myToken; //As ID
-			}
-						
-		} //end while (c is alpha)
-		
-		while (c == '-') //Minus sign
+			c = '\0'; // So that the listing file doesn't write before a possible new line character
+			fseek(in_file, lastPos, SEEK_SET); // Puts the file pointer back a byte so that it doesn't skip the next character
+
+		} //end if (c is alpha)
+		else if (c == '-') //Minus sign
 		{
-			if (next char == '-') //A comment
+
+			strncat(buffer, &c, 1);
+			c = getc(in_file);
+
+			if (c == '-') //A comment
 			{
 				while (c != '\n') //Process comment until end of line
 				{
-					copy c to listingLine;
-					filepos++ ?
-				}				
-			}
-			
-			if (next char is numeric) //A negative number
-			{
-				copy c i.e. '-' to token buffer
-				copy c to listingLine
-				
-				while (c is numeric) //Copy the rest of digits
-				{
-					copy c token buffer
-					copy c to listingLine
-					read c
+
+					strncat(buffer, &c, 1); // Comment this line out to not copy the comment to the listing file
+					c = getc(in_file);
+
 				}
-				
-				int myToken = check_reserved(token buffer); //Dr. P supplied routine. Just returns token
-				return myToken; //As INTLITERAL 
+				//buffer[0] = '\0'; // Uncomment this line to not copy the '-' to the listing file
+				strncat(buffer, &c, 1);
 			}
-			
-			int myToken = check_reserved(token buffer); //Dr. P supplied routine. Just returns token
-			return myToken; //As MINUSOP
-		}
-		
-		while (c == numeric) //A number
-		{
-			copy c to token buffer
-			copy c to listing line
-			
-			if (c is NOT numeric) //End of number
+			else if (charIsInt(c)) //A negative number
 			{
-				int myToken = check_reserved(token buffer); //Dr. P supplied routine. Just returns token
-				return myToken; //As INTLITERAL
+
+				while (charIsInt(c)) //Copy the rest of digits
+				{
+					strncat(buffer, &c, 1); //copy c to token buffer
+					c = getc(in_file); //read c
+				}
+
+				token = check_reserved(buffer); //Checks if the token mathces a reserved token first
+				if (token == -1)
+					token = INTLITERAL;
 			}
+			else
+			{
+				token = check_reserved(buffer);	//Checks if the token mathces a reserved token first
+				if (token == -1)
+					token = MINUSOP;
+			}
+
 		}
-		
-		//Check for other tokens
-		switch (c)
+		else if (charIsInt(c))
 		{
-			case '(':
-				return token AS LPAREN;
-				
-			case ')':
-				return token AS RPAREN;
-				
-			case ';':
-				return token AS SEMICOLON;
-			
-			case ',':
-				return token AS COMMA;
-			
-			case '+':
-				return token AS PLUSOP;
-			
-			case '*':
-				return token AS MULTOP;
-			
-			case '/':
-				return token AS DIVOP
-			
-			case '|':
-				return token AS NOTOP;
-			
-			case '=':
-				return token AS EQUALOP;			
-			
-			//Operators with two characters
-			case ':'
-				if (next char is '=')
+			while (charIsInt(c)) //A number
+			{
+				strncat(buffer, &c, 1); //copy c to token buffer
+
+				if (!charIsInt(c)) //End of number
 				{
-					return token AS ASSIGNOP;
-				} 
-				else 
-				{
-					return as ERROR ?
-				};			
-			
-			case '<':
-				if (next char is '=')
-				{
-					return token AS LESSEQUALOP;
-				} 
-				else if (next char is '>'
-				{
-					return token as NOTEQUALOP;
-				} 
+					token = check_reserved(buffer); //Checks if the token mathces a reserved token first
+					if (token == -1)
+						token = INTLITERAL;
+				}
 				else
 				{
-					return token as LESSOP;
+					c = getc(in_file);
 				}
-			
-			case '>':
-				if (next char is '=')
-				{
-					return token AS GREATEREQUALOP;
-				} 
-				else
-				{
-					return token as GREATEROP
-				};
-			
-			case 'EOF':
-				return token as SCANEOF;
-			
-			default:
-				return token as ERROR;			
-		} */
+			}
+		}
+		else
+		{
+			strncat(buffer, &c, 1); //copy c to token buffer
+
+			//Check for other tokens
+			switch (c)
+			{
+				case '(':
+					token = LPAREN;
+					break;
+				case ')':
+					token = RPAREN;
+					break;
+				case ';':
+					token = SEMICOLON;
+					break;
+				case ',':
+					token = COMMA;
+					break;
+				case '+':
+					token = PLUSOP;
+					break;
+				case '*':
+					token = MULTOP;
+					break;
+				case '/':
+					token = DIVOP;
+					break;
+				case '|':
+					token = NOTOP;
+					break;
+				case '=':
+					token = EQUALOP;
+					break;
+				//Operators with two characters
+				case ':':
+					c = getc(in_file);
+					strncat(buffer, &c, 1); //copy c to token buffer
+					if (c == '=')
+					{
+						token = ASSIGNOP;
+					}
+					else
+					{
+						token = ERROR;
+					}
+					break;
+				case '<':
+					c = getc(in_file);
+					strncat(buffer, &c, 1); //copy c to token buffer
+					if (c == '=')
+					{
+						token = LESSEQUALOP;
+					}
+					else if (c == '>')
+					{
+						token = NOTEQUALOP;
+					}
+					else if (c == '<')
+					{
+						token = LESSOP;
+					}
+					break;
+				case '>':
+					c = getc(in_file);
+					strncat(buffer, &c, 1); //copy c to token buffer
+					if (c == '=')
+					{
+						token = GREATEREQUALOP;
+					}
+					else
+					{
+						token = GREATEROP;
+					}
+					break;
+				case EOF:
+					token = SCANEOF;
+					break;
+				case ' ':
+					break;
+				case '\t':
+					break;
+				case '\r':
+					break;
+				case '\n':
+					break;
+				default:
+					token = ERROR;
+			}
+		}
+
+		//Write "buffer" to listing file ("buffer" now gets every character copied into to and emptied before the next token)
+		if (fputs(buffer, list_file) != 0)
+		{
+			printf("\nERROR writing to listing file...");
+		}
 	
 		//If reached end of line, print to listing file
 		if (c == '\n')
-		{						
-			//Write listing buffer to listing file
-			if (fputs(listingBuffer, list_file) != 0)
+		{
+
+			// --------------------START OF LISTING FILE WRITING----------------------
+			(*lineNum)++;
+			
+			int tempSize = (sizeof(char) * 3 + sizeof(char) * (log(*lineNum) / log(10) + 1));
+			// Allocates just enough space for the line number, a period, and a tab (and a NULL terminator) in the form of a character string
+			char* temp = malloc(tempSize);
+
+			//Converts the line number to a string and stores it in "listingBuffer"
+			itoa(*lineNum, temp, 10);
+			//Puts the period and tab after the line number
+			strcat(temp, ".\t");
+			
+			temp[tempSize / sizeof(char) - 1] = '\0'; // NULL terminates the string
+
+			// Writes the line number to the listing file
+			if (fputs(temp, list_file) != 0)
 			{
-				printf("\nERROR writing to listing file...");				 
+				printf("\nERROR writing to listing file...");
 			}
 			
-			//Reset listing buffer
-			listingBuffer[0] = '\0';
-			
+			free(temp);
+			// --------------------END OF LISTING FILE WRITING----------------------
+
 		}
 			
 		if (c == EOF)
+			token = SCANEOF;
+		if (token != -1)
 		{
-			return SCANEOF;
+
+			// --------------------START OF OUTPUT FILE WRITING----------------------
+			char tokenType[20] = { '\0' };
+			char temp[12];
+			char outputBuffer[70] = { '\0' }; //To print to output file
+
+			//Get token type as string	
+			getTokenType(token, tokenType);
+
+			//Build output buffer: Add "token number: "
+			strcpy(outputBuffer, "token number: ");
+
+			//Turn token into string and add to output buffer
+			sprintf(temp, "%d", token);
+			strcat(outputBuffer, temp);
+
+			//Add tab and "token type: " to output buffer
+			strcat(outputBuffer, "\t");
+			strcat(outputBuffer, "token type: ");
+			strcat(outputBuffer, tokenType);
+
+			//Add two tabs, "actual token: ", and actual token to output buffer
+			strcat(outputBuffer, "\t\t");
+			strcat(outputBuffer, "actual token: ");
+			strcat(outputBuffer, buffer); //actual token will be in token buffer
+			strcat(outputBuffer, "\n");
+
+			//Write output buffer to output file
+			if (fputs(outputBuffer, out_file) != 0)
+			{
+				printf("\nERROR writing to output file...");
+			}
+			// --------------------END OF OUTPUT FILE WRITING----------------------
+
+			return token;
 		}
-		
-				
-	}	
-	
+		else
+			buffer[0] = '\0'; // "Empties" the string
+	}
+	return SCANEOF;
+}
+
+// Checks if the string stored in buffer matches any of the hardcoded reserved names
+// If it matches a reserved name, then the corresponding token enumeration is returned, else -1 is returned
+int check_reserved(const char* buffer)
+{
+	int returnVal = -1;
+
+	if (strcmpi(buffer, "begin") == 0) // Compares "buffer" with "begin" while ignoring the case
+		returnVal = BEGIN;
+	else if (strcmpi(buffer, "end") == 0)
+		returnVal = END;
+
+	return returnVal;
 }
 
 //Given enum value of token, and a string, returns string value of token
@@ -346,139 +430,139 @@ char * getTokenType(int token, char * str)
 	
 	switch(token)
 	{	
-		case 0:
+		case BEGIN:
 			strcpy(str, "BEGIN");
 			break;
 		
-		case 1:
+		case END:
 			strcpy(str, "END");
 			break;
 		
-		case 2:
+		case READ:
 			strcpy(str, "READ");
 			break;
 		
-		case 3:
+		case WRITE:
 			strcpy(str, "WRITE");
 			break;
 		
-		case 4:
+		case IF:
 			strcpy(str, "IF");
 			break;
 		
-		case 5:
+		case THEN:
 			strcpy(str, "THEN");
 			break;
 		
-		case 6:
+		case ELSE:
 			strcpy(str, "ELSE");
 			break;
 		
-		case 7:
+		case ENDIF:
 			strcpy(str, "ENDIF");
 			break;
 		
-		case 8:
+		case WHILE:
 			strcpy(str, "WHILE");
 			break;
 		
-		case 9:
+		case ENDWHILE:
 			strcpy(str, "ENDWHILE");
 			break;
 		
-		case 10:
+		case ID:
 			strcpy(str, "ID");
 			break;
 		
-		case 11:
+		case INTLITERAL:
 			strcpy(str, "INTLITERAL");
 			break;
 		
-		case 12:
+		case FALSEOP:
 			strcpy(str, "FALSEOP");
 			break;
 		
-		case 13:
+		case TRUEOP:
 			strcpy(str, "TRUEOP");
 			break;
 		
-		case 14:
+		case NULLOP:
 			strcpy(str, "NULLOP");
 			break;
 		
-		case 15:
+		case LPAREN:
 			strcpy(str, "LPAREN");
 			break;
 		
-		case 16:
+		case RPAREN:
 			strcpy(str, "RPAREN");
 			break;
 		
-		case 17:
+		case SEMICOLON:
 			strcpy(str, "SEMICOLON");
 			break;
 		
-		case 18:
+		case COMMA:
 			strcpy(str, "COMMA");
 			break;
 		
-		case 19:
+		case ASSIGNOP:
 			strcpy(str, "ASSIGNOP");
 			break;
 		
-		case 20:
+		case PLUSOP:
 			strcpy(str, "PLUSOP");
 			break;
 		
-		case 21:
+		case MINUSOP:
 			strcpy(str, "MINUSOP");
 			break;
 		
-		case 22:
+		case MULTOP:
 			strcpy(str, "MULTOP");
 			break;
 		
-		case 23:
+		case DIVOP:
 			strcpy(str, "DIVOP");
 			break;
 		
-		case 24:
+		case NOTOP:
 			strcpy(str, "NOTOP");
 			break;
 		
-		case 25:
+		case LESSOP:
 			strcpy(str, "LESSOP");
 			break;
 		
-		case 26:
+		case LESSEQUALOP:
 			strcpy(str, "LESSEQUALOP");
 			break;
 		
-		case 27:
+		case GREATEROP:
 			strcpy(str, "GREATEROP");
 			break;
 		
-		case 28:
+		case GREATEREQUALOP:
 			strcpy(str, "GREATEREQUALOP");
 			break;
 		
-		case 29:
+		case EQUALOP:
 			strcpy(str, "EQUALOP");
 			break;
 		
-		case 30:
+		case NOTEQUALOP:
 			strcpy(str, "NOTEQUALOP");
 			break;
 		
-		case 31:
+		case SCANEOF:
 			strcpy(str, "SCANEOF");
 			break;
 		
-		case 32:
+		case ERROR:
 			strcpy(str, "ERROR");					
 		
 	}
 			
-			
+	return str;
 }
 
