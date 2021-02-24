@@ -6,4 +6,6 @@
 //Display opening title
 int displayTitle();
 
+#include "extra.c"
+
 #endif

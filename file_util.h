@@ -81,4 +81,6 @@ int getInputFile(char* filePath);
 // Does not allow the user to use an output filename that matches any string in "reservedNames"
 int getOutputFile(char* filePath, const char* defaultPath, const int resNameCount, const char** reservedNames);
 
+#include "file_util.c"
+
 #endif
