@@ -99,7 +99,6 @@ int copyFileContents(FILE* inputFile, FILE* outputFile)
             fputc(currentChar, outputFile);
             currentChar = fgetc(inputFile);
         }
-        rewind(inputFile);
     }
     else
         returnVal = 1;

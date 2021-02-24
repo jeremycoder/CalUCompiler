@@ -1,3 +1,11 @@
+
+/*
+	Created by: Group 5- Jeremy Mwangelwa, Nathaniel DeHart, Matt Oblock, George Brown
+	Class: CSC 460 Language Translation
+	Program 2: Scanner
+	Contacts: mwa2711@calu.edu, deh5850@calu.edu, obl2109@calu.edu, bro8079@calu.edu
+*/
+
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -6,7 +14,7 @@
 #include "token.h"
 
 //Scans input file for tokens and returns the next token
-int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* lineNum);
+int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE* list_file, int* lineNum, int* errorNum);
 
 //Given enum value of token, and a string, returns string value of token
 char * getTokenType(int token, char * str);
@@ -59,25 +67,36 @@ int main(int argc, char** argv)
 
         // Gives the temporary file the same directory as the output file
         changeFileDirectory(reservedFileNames[1], temp);
-        tempFilePtr = fileOpen(reservedFileNames[1], "w");
+        tempFilePtr = fileOpen(reservedFileNames[1], "w+");
     }
 
     if (invalid == 0 && listFilePtr != NULL && tempFilePtr != NULL)
     {
+		fputs("The Temp", tempFilePtr);
+
     	/* -- WORKING ON THE SCANNER --	 */
     	    	
 		char tokenBuffer[50] = {'\0'}; //To hold tokens from input file
 		int rec_token = 0; //Token received from scanner
 		int lineNum = 0; // To keep track of the input file's line number
-		//char * errorBuffer[50][300]; //To hold scanning errors    
+		int errorNum = 0;
+		char errorBuffer[ERROR_BUFFER_SIZE] = { '\0' }; //To hold scanning errors
         
     	while (rec_token != SCANEOF)
     	{
 			//Token is received as an integer
-			rec_token = scanner(tokenBuffer, inputFilePtr, outputFilePtr, listFilePtr, &lineNum);
+			rec_token = scanner(tokenBuffer, errorBuffer, inputFilePtr, outputFilePtr, listFilePtr, &lineNum, &errorNum);
 
 			//Note: Output file writing has been moved to the end of the scanner function
     	}
+    	
+    	printf("\n\nFinished Scanning: %s\n", inputFilePath);
+
+		sprintf(tokenBuffer, "\n\nThere are %d lexical errors.", errorNum); // Resuses the token buffer temporarily because why not
+		fputs(tokenBuffer, listFilePtr); // Puts the total number of errors at the end of the list file
+
+		rewind(tempFilePtr);
+		copyFileContents(tempFilePtr, outputFilePtr); // In this case copies "The Temp" into the end of the output file (current file position)
     }
 
     fileClose(inputFilePtr, inputFilePath);
@@ -135,9 +154,8 @@ void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFi
 //Scans input file for tokens and returns the next token
 //Should be called in a loop until the returned token is SCANEOF
 //When a token is returned "buffer" will contain the string form of the token
-int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* lineNum)
+int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE* list_file, int* lineNum, int* errorNum)
 {
-	printf("\n\nScanner here...\n\n");
 	buffer[0] = '\0'; //Clear token buffer
 	int token = -1;
 	char c = 0; //Initialize variable to read chars from inputfile
@@ -193,12 +211,16 @@ int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* l
 				}
 				//buffer[0] = '\0'; // Uncomment this line to not copy the '-' to the listing file
 				strncat(buffer, &c, 1);
+
 			}
 			else if (charIsInt(c)) //A negative number
 			{
 
+				long lastPos = 0;
+
 				while (charIsInt(c)) //Copy the rest of digits
 				{
+					lastPos = ftell(in_file);
 					strncat(buffer, &c, 1); //copy c to token buffer
 					c = getc(in_file); //read c
 				}
@@ -206,6 +228,9 @@ int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* l
 				token = check_reserved(buffer); //Checks if the token mathces a reserved token first
 				if (token == -1)
 					token = INTLITERAL;
+
+				c = '\0'; // So that the listing file doesn't write before a possible new line character
+				fseek(in_file, lastPos, SEEK_SET); // Puts the file pointer back a byte so that it doesn't skip the next character
 			}
 			else
 			{
@@ -217,21 +242,22 @@ int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* l
 		}
 		else if (charIsInt(c))
 		{
+
+			long lastPos = 0;
+
 			while (charIsInt(c)) //A number
 			{
+				lastPos = ftell(in_file);
 				strncat(buffer, &c, 1); //copy c to token buffer
-
-				if (!charIsInt(c)) //End of number
-				{
-					token = check_reserved(buffer); //Checks if the token mathces a reserved token first
-					if (token == -1)
-						token = INTLITERAL;
-				}
-				else
-				{
-					c = getc(in_file);
-				}
+				c = getc(in_file);
 			}
+
+			token = check_reserved(buffer); //Checks if the token mathces a reserved token first
+			if (token == -1)
+				token = INTLITERAL;
+
+			c = '\0'; // So that the listing file doesn't write before a possible new line character
+			fseek(in_file, lastPos, SEEK_SET); // Puts the file pointer back a byte so that it doesn't skip the next character
 		}
 		else
 		{
@@ -291,7 +317,7 @@ int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* l
 					{
 						token = NOTEQUALOP;
 					}
-					else if (c == '<')
+					else
 					{
 						token = LESSOP;
 					}
@@ -324,19 +350,36 @@ int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* l
 			}
 		}
 
+		// --------------------START OF LISTING FILE WRITING----------------------
+
 		//Write "buffer" to listing file ("buffer" now gets every character copied into to and emptied before the next token)
 		if (fputs(buffer, list_file) != 0)
 		{
 			printf("\nERROR writing to listing file...");
 		}
+
+		// Write the error into a buffer for later writing to the list file
+		if (token == ERROR)
+		{
+
+			(*errorNum)++;
+			strncat(errorBuffer, "Unexpected token '", ERROR_BUFFER_SIZE - strlen(errorBuffer));
+			strncat(errorBuffer, buffer, ERROR_BUFFER_SIZE - strlen(errorBuffer));
+			strncat(errorBuffer, "'\n", ERROR_BUFFER_SIZE - strlen(errorBuffer));
+			if (strlen(errorBuffer) >= ERROR_BUFFER_SIZE)
+				strcpy(errorBuffer, "Many unexpected tokens were found!"); // For cases in which the error buffer is too small
+
+		}
 	
-		//If reached end of line, print to listing file
+		//If reached end of line, print possible errors and new line number to listing file
 		if (c == '\n')
 		{
 
-			// --------------------START OF LISTING FILE WRITING----------------------
+			fputs(errorBuffer, list_file);
+			errorBuffer[0] = '\0';
+
 			(*lineNum)++;
-			
+
 			int tempSize = (sizeof(char) * 3 + sizeof(char) * (log(*lineNum) / log(10) + 1));
 			// Allocates just enough space for the line number, a period, and a tab (and a NULL terminator) in the form of a character string
 			char* temp = malloc(tempSize);
@@ -355,9 +398,9 @@ int scanner(char* buffer, FILE* in_file, FILE* out_file, FILE* list_file, int* l
 			}
 			
 			free(temp);
-			// --------------------END OF LISTING FILE WRITING----------------------
 
 		}
+		// --------------------END OF LISTING FILE WRITING----------------------
 			
 		if (c == EOF)
 			token = SCANEOF;
@@ -415,6 +458,26 @@ int check_reserved(const char* buffer)
 		returnVal = BEGIN;
 	else if (strcmpi(buffer, "end") == 0)
 		returnVal = END;
+	else if (strcmpi(buffer, "read") == 0)
+		returnVal = READ;
+	else if (strcmpi(buffer, "write") == 0)
+		returnVal = WRITE;
+	else if (strcmpi(buffer, "true") == 0)
+		returnVal = TRUEOP;
+	else if (strcmpi(buffer, "false") == 0)
+		returnVal = FALSEOP;
+	else if (strcmpi(buffer, "null") == 0)
+		returnVal = NULLOP;
+	else if (strcmpi(buffer, "if") == 0)
+		returnVal = IF;
+	else if (strcmpi(buffer, "then") == 0)
+		returnVal = THEN;
+	else if (strcmpi(buffer, "endif") == 0)
+		returnVal = ENDIF;
+	else if (strcmpi(buffer, "while") == 0)
+		returnVal = WHILE;
+	else if (strcmpi(buffer, "endwhile") == 0)
+		returnVal = ENDWHILE;
 
 	return returnVal;
 }

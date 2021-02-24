@@ -1,3 +1,6 @@
+
+#define ERROR_BUFFER_SIZE 100
+
 enum token {
   /*0.*/ BEGIN, 
   /*1.*/ END, 
