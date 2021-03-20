@@ -230,9 +230,9 @@ int changeFileExtension(char* filename, const char* extension)
 
 // Changes the current file directory in "filename"
 // If no extension exists then the extension is simply added
-// Returns 0 if the extension is added
+// Returns 0 if the directory was changed
 // Returns 1 if the filename is empty
-// Returns -1 if the extension is invalid
+// Returns -1 if the directory is invalid
 int changeFileDirectory(char* filename, const char* directory)
 {
     int result = 0;
@@ -268,24 +268,9 @@ int changeFileDirectory(char* filename, const char* directory)
     return result;
 }
 
-// Prompts the user for input and output file paths and opens the files in their respective modes
-// Returns 0 if the files were successfully opened, else returns 1
-int getFiles(char* inputFilePath, char* outputFilePath, const int resNameCount, const char** reservedNames)
-{
-    int invalid = 0;
-
-    invalid = getInputFile(inputFilePath);
-
-    if (!invalid)
-        invalid = getOutputFile(outputFilePath, inputFilePath, resNameCount, reservedNames);
-
-    return invalid;
-}
-
 // Prompts the user for an input file name until either an existing file's path is entered or the user does not enter anything
 // Returns 0 when the user enters a valid input file path else returns 1
-// Does not allow the user to use the ".out" extension
-int getInputFile(char* filePath)
+int getInputFile(char* filePath, const char restrictedExtensions[][FILENAME_MAX], const int resExtCount)
 {
     int gettingFileName = 1;
     int invalid = 0;
@@ -310,10 +295,16 @@ int getInputFile(char* filePath)
         else
         {
             getFileExtension(tempBuff, filePath);
-            if (!strcmp(tempBuff, ".out"))
+            int i;
+            // Ensures that "filePath"'s extension does not match any of the restricted extensions
+            for (i = 0; i < resExtCount; i++)
             {
-                printf("\nInvalid file extension for input file.");
-                filePath[0] = '\0';
+                if (!strcmp(tempBuff, restrictedExtensions[i]))
+                {
+                    filePath[0] = '\0';
+                    printf("\nThe extension \"%s\" cannot be used!\n", restrictedExtensions[i]);
+                    i = resExtCount; // To break out of the loop
+                }
             }
             // Opens the input file if it exists
             if (fileExists(filePath))
@@ -336,7 +327,7 @@ int getInputFile(char* filePath)
 // Prompts the user for an output file name until either a valid file path is entered or the user does not enter anything
 // Returns 0 when the user enters a valid output file path else returns 1
 // Does not allow the user to use an output filename that matches any string in "reservedNames"
-int getOutputFile(char* filePath, const char* defaultPath, const int resNameCount, const char** reservedNames)
+int getOutputFile(char* filePath, const char* defaultDir, const char restrictedExtensions[][FILENAME_MAX], const int resExtCount)
 {
     int gettingFileName = 1;
     int invalid = 0;
@@ -356,7 +347,7 @@ int getOutputFile(char* filePath, const char* defaultPath, const int resNameCoun
         if (filePath[0] == '\0')
         {
             strcpy(filePath, "output.out");
-            getFileDirectory(tempBuff, defaultPath);
+            getFileDirectory(tempBuff, defaultDir);
             changeFileDirectory(filePath, tempBuff);
             printf("\nNo output file name was entered. The name was defaulted to %s", filePath);
         }
@@ -368,89 +359,95 @@ int getOutputFile(char* filePath, const char* defaultPath, const int resNameCoun
             printf("The output file is now %s\n", filePath);
         }
 
-        getFileWithoutDirectory(tempBuff, filePath);
+        getFileExtension(tempBuff, filePath);
         int i;
-        // Ensures that "filePath"'s name does not match any of the reserved names
-        for (i = 0; i < resNameCount; i++)
+        // Ensures that "filePath"'s extension does not match any of the restricted extensions
+        for (i = 0; i < resExtCount; i++)
         {
-            if (!strcmp(tempBuff, reservedNames[i]))
+            if (!strcmp(tempBuff, restrictedExtensions[i]))
             {
                 filePath[0] = '\0';
-                printf("\nThe name \"%s\" cannot be used!\n", reservedNames[i]);
-                i = resNameCount;
-                invalid = 1;
-                gettingFileName = 0;
+                printf("\nThe extension \"%s\" cannot be used!\n", restrictedExtensions[i]);
+                i = resExtCount; // To break out of the loop
             }
         }
-        // Checks if an output file of that name already exists
-        if (fileExists(filePath) == 0)
+        if (filePath[0] == '\0')
         {
-            // A valid name was found
-            gettingFileName = 0;
+            printf("\nPlease enter a name for the output file: ");
+            getLine(filePath, MAX_PATH_SIZE - 1);
         }
-        // A file with that name already exists
         else
         {
-            printf("\nA file with the name %s already exists.\n", filePath);
-            printf("\nType 'o' to back it up and then overwrite, 'n' to type a new name, or 'q' to quit: ");
-            getLine(decision, 1);
-
-            // If nothing was entered then the input file's name is used for the output file
-            if (decision[0] == '\0')
+            // Checks if an output file of that name already exists
+            if (!fileExists(filePath))
             {
-                strcpy(filePath, defaultPath);
-                changeFileExtension(filePath, ".out");
-                printf("\nA decision was not entered. Defaulting the name to %s\n", filePath);
+                // A valid name was found
+                gettingFileName = 0;
             }
-            // Checks if the user wants to enter a new filename
-            else if (decision[0] == 'n')
+            // A file with that name already exists
+            else
             {
-                printf("\nPlease enter a name for the output file: ");
-                flushInputs();
-                getLine(filePath, MAX_PATH_SIZE - 1);
-            }
-            // Checks if the user wants to overwrite the output file
-            else if (decision[0] == 'o')
-            {
-                char backFile[MAX_PATH_SIZE];
-                strcpy(backFile, filePath);
-                changeFileExtension(backFile, ".bak");
-                // Checks if a backup file with that name already exists
-                if (fileExists(backFile))
+                printf("\nA file with the name %s already exists.\n", filePath);
+                printf("\nType 'o' to back it up and then overwrite, 'n' to type a new name, or 'q' to quit: ");
+                getLine(decision, 1);
+
+                // If nothing was entered then the input file's name is used for the output file
+                if (decision[0] == '\0')
                 {
-                    printf("\nA file with the name %s already exists.\n", backFile);
-                    printf("\nType 'o' to overwrite the backup file, 'q' to quit, or enter nothing to type a new output filename: ");
-                    decision[0] = '\0';
-                    flushInputs();
-                    getLine(decision, 1);
+                    strcpy(filePath, defaultDir);
+                    changeFileExtension(filePath, ".out");
+                    printf("\nA decision was not entered. Defaulting the name to %s\n", filePath);
                 }
-                // Checks if the user still wants to copy to to the backup file
-                if (decision[0] == 'o')
-                {
-                    FILE* backupFilePtr = fopen(backFile, "w");
-                    FILE* outputFilePtr = fopen(filePath, "r");
-
-                    copyFileContents(outputFilePtr, backupFilePtr);
-                    printf("\nBacked up %s to %s\n", filePath, backFile);
-
-                    fclose(backupFilePtr);
-                    fclose(outputFilePtr);
-
-                    gettingFileName = 0;
-                }
-                // Checks if the user wants to enter a new filename when the last file already has a backup
-                else if (decision[0] == '\0')
+                // Checks if the user wants to enter a new filename
+                else if (decision[0] == 'n')
                 {
                     printf("\nPlease enter a name for the output file: ");
+                    flushInputs();
                     getLine(filePath, MAX_PATH_SIZE - 1);
                 }
-            }
+                // Checks if the user wants to overwrite the output file
+                else if (decision[0] == 'o')
+                {
+                    char backFile[MAX_PATH_SIZE];
+                    strcpy(backFile, filePath);
+                    changeFileExtension(backFile, ".bak");
+                    // Checks if a backup file with that name already exists
+                    if (fileExists(backFile))
+                    {
+                        printf("\nA file with the name %s already exists.\n", backFile);
+                        printf("\nType 'o' to overwrite the backup file, 'q' to quit, or enter nothing to type a new output filename: ");
+                        decision[0] = '\0';
+                        flushInputs();
+                        getLine(decision, 1);
+                    }
+                    // Checks if the user still wants to copy to to the backup file
+                    if (decision[0] == 'o')
+                    {
+                        FILE* backupFilePtr = fopen(backFile, "w");
+                        FILE* outputFilePtr = fopen(filePath, "r");
 
-            // Catches a quit decision
-            if (decision[0] == 'q')
-            {
-                invalid = 1;
-                gettingFileName = 0;
+                        copyFileContents(outputFilePtr, backupFilePtr);
+                        printf("\nBacked up %s to %s\n", filePath, backFile);
+
+                        fclose(backupFilePtr);
+                        fclose(outputFilePtr);
+
+                        gettingFileName = 0;
+                    }
+                    // Checks if the user wants to enter a new filename when the last file already has a backup
+                    else if (decision[0] == '\0')
+                    {
+                        printf("\nPlease enter a name for the output file: ");
+                        getLine(filePath, MAX_PATH_SIZE - 1);
+                    }
+                }
+
+                // Catches a quit decision
+                if (decision[0] == 'q')
+                {
+                    invalid = 1;
+                    gettingFileName = 0;
+                }
             }
         }
     }

@@ -34,5 +34,7 @@ enum token {
   /*30.*/ EQUALOP, 
   /*31.*/ NOTEQUALOP, 
   /*32.*/ SCANEOF, 
-  /*33.*/ ERROR
+  /*33.*/ ERROR,
+
+  /*34.*/ NEWLINE
 };

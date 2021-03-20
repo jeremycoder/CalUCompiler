@@ -62,25 +62,20 @@ int changeFileExtension(char* filename, const char* extension);
 
 // Changes the current file directory in "filename"
 // If no extension exists then the extension is simply added
-// Returns 0 if the extension is added
+// Returns 0 if the directory was changed
 // Returns 1 if the filename is empty
-// Returns -1 if the extension is invalid
+// Returns -1 if the directory is invalid
 int changeFileDirectory(char* filename, const char* directory);
-
-// Prompts the user for input and output file paths and opens the files in their respective modes
-// Returns 0 if the files were successfully opened, else returns 1
-int getFiles(char* inputFilePath, char* outputFilePath, const int resNameCount, const char** reservedNames);
 
 // Prompts the user for an input file name until either an existing file's path is entered or the user does not enter anything
 // Returns 0 when the user enters a valid input file path else returns 1
-// Does not allow the user to use the ".out" extension
-int getInputFile(char* filePath);
+int getInputFile(char* filePath, const char restrictedExtensions[][FILENAME_MAX], const int resExtCount);
 
 // Prompts the user for an output file name until either a valid file path is entered or the user does not enter anything
 // Returns 0 when the user enters a valid output file path else returns 1
 // Does not allow the user to use an output filename that matches any string in "reservedNames"
-int getOutputFile(char* filePath, const char* defaultPath, const int resNameCount, const char** reservedNames);
+int getOutputFile(char* filePath, const char* defaultDir, const char restrictedExtensions[][FILENAME_MAX], const int resExtCount);
 
-#include "file_util.c"
+//#include "file_util.c"
 
 #endif

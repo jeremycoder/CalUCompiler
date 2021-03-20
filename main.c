@@ -10,18 +10,50 @@
 #include <string.h>
 #include <math.h>
 #include "file_util.h"
-#include "extra.h"
 #include "token.h"
 
+FILE* inputFilePtr;
+FILE* outputFilePtr;
+FILE* listFilePtr;
+FILE* tempFilePtr;
+
+int lexicalErrNum;
+int curLineNum;
+
+//To hold scanning errors
+char errorBuffer[ERROR_BUFFER_SIZE] = { '\0' };
+//To hold tokens from input file
+char tokenBuffer[50] = { '\0' };
+
+void systemGoal();
+
+// Returns the next token from the scanner
+int nextToken();
+
+// Gets the next token from the scanner and checks if it is equal to "token"
+// Returns 1 if it is equal
+// Returns 0 if it is not equal
+int match(int token);
+
+// Returns 1 if start was successful
+// Returns 0 if there were problems opening files
+int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* tempFilePath);
+
+void end(char* inputFilePath, char* outputFilePath, char* listFilePath, char* tempFilePath);
+
 //Scans input file for tokens and returns the next token
-int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE* list_file, int* lineNum, int* errorNum);
+int scanner(int destructive);
+
+void updateListFile(int token);
+
+void updateOutputFile(int token);
 
 //Given enum value of token, and a string, returns string value of token
 char * getTokenType(int token, char * str);
 
 // Checks if the string stored in buffer matches any of the hardcoded reserved names
 // If it matches a reserved name, then the corresponding token enumeration is returned, else -1 is returned
-int check_reserved(const char* buffer);
+int checkReserved(const char* buffer);
 
 // Gets parameters from the command prompt (if they exist) and stores them in "inputFilePath" and "outputFilePath" respectively
 void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFilePath);
@@ -30,93 +62,160 @@ int main(int argc, char** argv)
 {
     char inputFilePath[MAX_PATH_SIZE] = { '\0' };
     char outputFilePath[MAX_PATH_SIZE] = { '\0' };
+	char listFilePath[MAX_PATH_SIZE] = { '\0' };
+	char tempFilePath[MAX_PATH_SIZE] = { '\0' };
 
-    // Allocates space for 2 pointers
-    // This pointer to an array of pointers is used so that any reserved file names can easily be passed into "getFiles(...)"
-    char** reservedFileNames = (char**)calloc(2, sizeof(char*));
-    // Allocates space for a reserved file path
-    reservedFileNames[0] = (char*)calloc(MAX_PATH_SIZE, sizeof(char));
-    // Allocates space for a reserved file path
-    reservedFileNames[1] = (char*)calloc(MAX_PATH_SIZE, sizeof(char));
+	int invalid;
 
-    strcpy(reservedFileNames[0], "list.out");
-    strcpy(reservedFileNames[1], "temp.out");
+	// Get command line parameters if they exist
+	getCmdParameters(argc, argv, inputFilePath, outputFilePath);
 
-    int invalid = 0;
+    if (start(inputFilePath, outputFilePath, listFilePath, tempFilePath) == 0)
+    { 	
 
-    FILE* inputFilePtr = NULL;
-    FILE* outputFilePtr = NULL;
-    FILE* tempFilePtr = NULL;
-    FILE* listFilePtr = NULL;
 
-    // Displays our group title
-    displayTitle();
-    // Get command line parameters if they exist
-    getCmdParameters(argc, argv, inputFilePath, outputFilePath);
 
-    // Prompt the user for any missing and/or invalid file paths (returns 0 if the user enters valid file paths)
-    // "reservedNames" is explicitly cast as "const char**" because DevCPP complains
-    if ((invalid = getFiles(inputFilePath, outputFilePath, 2, (const char**)reservedFileNames)) == 0)
-    {
-        inputFilePtr = fileOpen(inputFilePath, "rb"); // Must be in binary read mode for fseek to properly function
-        outputFilePtr = fileOpen(outputFilePath, "w");
+		// START OF OLD SCANNER PROGRAM STUFF
+		int token = -1; // REMOVE THIS
+		while (token != SCANEOF) // REMOVE THIS 
+		{ // REMOVE THIS
+			token = scanner(1); // REMOVE THIS
+			updateOutputFile(token); // REMOVE THIS
+		} // REMOVE THIS
+		// END OF OLD SCANNER PROGRAM STUFF
 
-        // Defines a temp buffer for holding the outputFilePaths' directory
-        char temp[MAX_PATH_SIZE];
-        getFileDirectory(temp, outputFilePath);
 
-        // Gives the listing file the same directory as the output file
-        changeFileDirectory(reservedFileNames[0], temp);
-        listFilePtr = fileOpen(reservedFileNames[0], "w");
 
-        // Gives the temporary file the same directory as the output file
-        changeFileDirectory(reservedFileNames[1], temp);
-        tempFilePtr = fileOpen(reservedFileNames[1], "w+");
+		//systemGoal(); // UNCOMMENT THIS
+
+		end(inputFilePath, outputFilePath, listFilePath, tempFilePath);
     }
-
-    if (invalid == 0 && listFilePtr != NULL && tempFilePtr != NULL)
-    {
-		fputs("The Temp", tempFilePtr);
-
-    	/* -- WORKING ON THE SCANNER --	 */
-    	    	
-		char tokenBuffer[50] = {'\0'}; //To hold tokens from input file
-		int rec_token = 0; //Token received from scanner
-		int lineNum = 0; // To keep track of the input file's line number
-		int errorNum = 0;
-		char errorBuffer[ERROR_BUFFER_SIZE] = { '\0' }; //To hold scanning errors
-        
-    	while (rec_token != SCANEOF)
-    	{
-			//Token is received as an integer
-			rec_token = scanner(tokenBuffer, errorBuffer, inputFilePtr, outputFilePtr, listFilePtr, &lineNum, &errorNum);
-
-			//Note: Output file writing has been moved to the end of the scanner function
-    	}
-
-		printf("\n\nFinished Scanning: %s\n", inputFilePath);
-
-		sprintf(tokenBuffer, "\n\nThere are %d lexical errors.", errorNum); // Resuses the token buffer temporarily because why not
-		fputs(tokenBuffer, listFilePtr); // Puts the total number of errors at the end of the list file
-
-		rewind(tempFilePtr);
-		copyFileContents(tempFilePtr, outputFilePtr); // In this case copies "The Temp" into the end of the output file (current file position)
-    }
-
-    fileClose(inputFilePtr, inputFilePath);
-    fileClose(outputFilePtr, outputFilePath);
-    fileClose(listFilePtr, reservedFileNames[0]);
-    fileClose(tempFilePtr, reservedFileNames[1]);
-
-    //if (fileExists("temp.out"))
-        //remove("temp.out");
-
-    // What's allocated must be deallocated!
-    free(reservedFileNames[1]);
-    free(reservedFileNames[0]);
-    free(reservedFileNames);
 
     return 0;
+}
+
+void systemGoal()
+{
+	if (program())
+	{
+		if (match(SCANEOF))
+		{
+			// Everything is good
+		}
+	}
+	else
+	{
+		// There was an error in the program
+	}
+}
+
+int program()
+{
+	int returnVal;
+
+	
+}
+
+// Gets the next token from the scanner and checks if it is equal to "token"
+// Returns 1 if it is equal
+// Returns 0 if it is not equal
+int match(int token)
+{
+	int returnVal;
+	if (token == scanner(1))
+	{
+		returnVal = 1;
+	}
+	else
+	{
+		returnVal = 0;
+	}
+	updateOutputFile(token);
+	return returnVal;
+}
+
+// Looks better than calling "scanner(0)" everywhere
+int nextToken()
+{
+	return scanner(0);
+}
+
+// Attempts to open all of the needed files
+// Returns 1 if start was successful
+// Returns 0 if there were problems opening files
+int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* tempFilePath)
+{
+	int returnVal;
+
+	char restrictExtsn[2][FILENAME_MAX];
+	char temp[FILENAME_MAX];
+
+	strcpy(restrictExtsn[0], ".lis");
+	strcpy(restrictExtsn[1], ".out");
+
+	// Displays our group title
+	printf("\n-----------------------------------\n");
+	printf("------GROUP 5: PARSER PROGRAM------\n");
+	printf("-----------------------------------\n");
+	printf("\n");
+
+	returnVal = getInputFile(inputFilePath, restrictExtsn, 2);
+	if (returnVal == 0)
+	{
+		returnVal = getOutputFile(outputFilePath, inputFilePath, restrictExtsn, 1);
+	}
+	// Checks if still valid
+	if (returnVal == 0)
+	{
+		strcpy(listFilePath, outputFilePath);
+		changeFileExtension(listFilePath, ".lis");
+		strcpy(tempFilePath, "temp.lis");
+		getFileDirectory(temp, outputFilePath);
+		changeFileDirectory(tempFilePath, temp);
+
+		if (strcmp(listFilePath, tempFilePath))
+		{
+			inputFilePtr = fileOpen(inputFilePath, "rb");
+			outputFilePtr = fileOpen(outputFilePath, "w");
+			listFilePtr = fileOpen(listFilePath, "w");
+			tempFilePtr = fileOpen(tempFilePath, "w+");
+		}
+		else
+		{
+			printf("The listing file and temp file have the same name!\n");
+			printf("To prevent this do not name the output file \"temp\"\n");
+		}
+
+		if (inputFilePtr == NULL || outputFilePtr == NULL || listFilePtr == NULL || tempFilePtr == NULL)
+		{
+			returnVal = 1;
+		}
+		else
+		{
+			fputs("The Temp", tempFilePtr);
+		}
+	}
+
+	return returnVal;
+}
+
+// Prints the total number of lexical errors at the end of the listing file
+// Closes all of the files
+void end(char* inputFilePath, char* outputFilePath, char* listFilePath, char* tempFilePath)
+{
+	sprintf(tokenBuffer, "\n\nThere are %d lexical errors.", lexicalErrNum); // Resuses the token buffer temporarily because why not
+	fputs(tokenBuffer, listFilePtr); // Puts the total number of errors at the end of the list file
+
+	rewind(tempFilePtr);
+	copyFileContents(tempFilePtr, outputFilePtr); // In this case copies "The Temp" into the end of the output file (current file position)
+
+	fileClose(inputFilePtr, inputFilePath);
+	fileClose(outputFilePtr, outputFilePath);
+	fileClose(listFilePtr, listFilePath);
+	fileClose(tempFilePtr, tempFilePath);
+
+	//if (fileExists("temp.out"))
+		//remove("temp.out");
 }
 
 // Returns 1 if the character is an alpha ASCII character, else returns 0
@@ -155,26 +254,28 @@ void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFi
     }
 }
 
-//Scans input file for tokens and returns the next token
-//Should be called in a loop until the returned token is SCANEOF
-//When a token is returned "buffer" will contain the string form of the token
-int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE* list_file, int* lineNum, int* errorNum)
+// Scans input file for tokens and returns the next token
+// If "destructive" is 0 then the input file pointer will be pointing at the same location as when it started
+// If "destructive" is not equal to 0 then it will update the listing file
+// When a token is returned "tokenBuffer" will contain the string form of the token
+int scanner(int destructive)
 {
-	buffer[0] = '\0'; //Clear token buffer
+	tokenBuffer[0] = '\0'; //Clear token buffer
 	int token = -1;
 	char c = 0; //Initialize variable to read chars from inputfile
+	long ogFilePos = ftell(inputFilePtr);
 
-	if (*lineNum < 1)
+	if (curLineNum < 1)
 	{
-		*lineNum = 1;
-		fputs("1.\t", list_file); // Places the first line number into the listing file
+		curLineNum = 1;
+		fputs("1.\t", listFilePtr); // Places the first line number into the listing file
 	}
 		
 	//Read each character in input file
 	while (c != EOF)
 	{
 		//Read character from file
-		c = getc(in_file);
+		c = getc(inputFilePtr);
 
 		if (charIsAlpha(c)) //An identifier - starts with a-zA-Z
 		{
@@ -184,37 +285,38 @@ int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE
 			while (charIsAlpha(c) || charIsInt(c)) //An identifier as in as23 etc
 			{
 				
-				lastPos = ftell(in_file);
-				strncat(buffer, &c, 1); //copy c to token buffer
-				c = getc(in_file);
+				lastPos = ftell(inputFilePtr);
+				strncat(tokenBuffer, &c, 1); //copy c to token buffer
+				c = getc(inputFilePtr);
 				
 			}
 
-			token = check_reserved(buffer); //Checks if the token matches a reserved token first
+			token = checkReserved(tokenBuffer); //Checks if the token matches a reserved token first
 			if (token == -1)
 				token = ID;
 			
 			c = '\0'; // So that the listing file doesn't write before a possible new line character
-			fseek(in_file, lastPos, SEEK_SET); // Puts the file pointer back a byte so that it doesn't skip the next character
+			fseek(inputFilePtr, lastPos, SEEK_SET); // Puts the file pointer back a byte so that it doesn't skip the next character
 
 		} //end if (c is alpha)
 		else if (c == '-') //Minus sign
 		{
 
-			strncat(buffer, &c, 1);
-			c = getc(in_file);
+			strncat(tokenBuffer, &c, 1);
+			c = getc(inputFilePtr);
 
 			if (c == '-') //A comment
 			{
 				while (c != '\n') //Process comment until end of line
 				{
 
-					strncat(buffer, &c, 1); // Comment this line out to not copy the comment to the listing file
-					c = getc(in_file);
+					strncat(tokenBuffer, &c, 1); // Comment this line out to not copy the comment to the listing file
+					c = getc(inputFilePtr);
 
 				}
-				//buffer[0] = '\0'; // Uncomment this line to not copy the '-' to the listing file
-				strncat(buffer, &c, 1);
+				//tokenBuffer[0] = '\0'; // Uncomment this line to not copy the '-' to the listing file
+				strncat(tokenBuffer, &c, 1);
+				token = NEWLINE;
 
 			}
 			else if (charIsInt(c)) //A negative number
@@ -224,21 +326,21 @@ int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE
 
 				while (charIsInt(c)) //Copy the rest of digits
 				{
-					lastPos = ftell(in_file);
-					strncat(buffer, &c, 1); //copy c to token buffer
-					c = getc(in_file); //read c
+					lastPos = ftell(inputFilePtr);
+					strncat(tokenBuffer, &c, 1); //copy c to token buffer
+					c = getc(inputFilePtr); //read c
 				}
 
-				token = check_reserved(buffer); //Checks if the token mathces a reserved token first
+				token = checkReserved(tokenBuffer); //Checks if the token mathces a reserved token first
 				if (token == -1)
 					token = INTLITERAL;
 
 				c = '\0'; // So that the listing file doesn't write before a possible new line character
-				fseek(in_file, lastPos, SEEK_SET); // Puts the file pointer back a byte so that it doesn't skip the next character
+				fseek(inputFilePtr, lastPos, SEEK_SET); // Puts the file pointer back a byte so that it doesn't skip the next character
 			}
 			else
 			{
-				token = check_reserved(buffer);	//Checks if the token mathces a reserved token first
+				token = checkReserved(tokenBuffer);	//Checks if the token mathces a reserved token first
 				if (token == -1)
 					token = MINUSOP;
 			}
@@ -251,22 +353,22 @@ int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE
 
 			while (charIsInt(c)) //A number
 			{
-				lastPos = ftell(in_file);
-				strncat(buffer, &c, 1); //copy c to token buffer
-				c = getc(in_file);
+				lastPos = ftell(inputFilePtr);
+				strncat(tokenBuffer, &c, 1); //copy c to token buffer
+				c = getc(inputFilePtr);
 			}
 
-			token = check_reserved(buffer); //Checks if the token mathces a reserved token first
+			token = checkReserved(tokenBuffer); //Checks if the token mathces a reserved token first
 			if (token == -1)
 				token = INTLITERAL;
 
 			c = '\0'; // So that the listing file doesn't write before a possible new line character
-			fseek(in_file, lastPos, SEEK_SET); // Puts the file pointer back a byte so that it doesn't skip the next character
+			fseek(inputFilePtr, lastPos, SEEK_SET); // Puts the file pointer back a byte so that it doesn't skip the next character
 
 		}
 		else
 		{
-			strncat(buffer, &c, 1); //copy c to token buffer
+			strncat(tokenBuffer, &c, 1); //copy c to token buffer
 
 			//Check for other tokens
 			switch (c)
@@ -292,7 +394,7 @@ int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE
 				case '/':
 					token = DIVOP;
 					break;
-				case '|':
+				case '!':
 					token = NOTOP;
 					break;
 				case '=':
@@ -300,8 +402,8 @@ int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE
 					break;
 				//Operators with two characters
 				case ':':
-					c = getc(in_file);
-					strncat(buffer, &c, 1); //copy c to token buffer
+					c = getc(inputFilePtr);
+					strncat(tokenBuffer, &c, 1); //copy c to token buffer
 					if (c == '=')
 					{
 						token = ASSIGNOP;
@@ -312,8 +414,8 @@ int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE
 					}
 					break;
 				case '<':
-					c = getc(in_file);
-					strncat(buffer, &c, 1); //copy c to token buffer
+					c = getc(inputFilePtr);
+					strncat(tokenBuffer, &c, 1); //copy c to token buffer
 					if (c == '=')
 					{
 						token = LESSEQUALOP;
@@ -328,8 +430,8 @@ int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE
 					}
 					break;
 				case '>':
-					c = getc(in_file);
-					strncat(buffer, &c, 1); //copy c to token buffer
+					c = getc(inputFilePtr);
+					strncat(tokenBuffer, &c, 1); //copy c to token buffer
 					if (c == '=')
 					{
 						token = GREATEREQUALOP;
@@ -349,120 +451,121 @@ int scanner(char* buffer, char* errorBuffer, FILE* in_file, FILE* out_file, FILE
 				case '\r':
 					break;
 				case '\n':
+					token = NEWLINE; // For easier use with knowing when to print to the listing file
 					break;
 				default:
 					token = ERROR;
 			}
 		}
 
-		if (token == SCANEOF)
-		{
-			buffer = "EOF";
-		}
-		else
-		{
-			// --------------------START OF LISTING FILE WRITING----------------------
+		// Updates the List file (including spaces)
+		if (destructive)
+			updateListFile(token);
 
-			//Write "buffer" to listing file ("buffer" now gets every character copied into to and emptied before the next token)
-			if (fputs(buffer, list_file) != 0)
-			{
-				printf("\nERROR writing to listing file...");
-			}
-
-			// Write the error into a buffer for later writing to the list file
-			if (token == ERROR)
-			{
-
-				(*errorNum)++;
-				strncat(errorBuffer, "Unexpected token '", ERROR_BUFFER_SIZE - strlen(errorBuffer));
-				strncat(errorBuffer, buffer, ERROR_BUFFER_SIZE - strlen(errorBuffer));
-				strncat(errorBuffer, "'\n", ERROR_BUFFER_SIZE - strlen(errorBuffer));
-				if (strlen(errorBuffer) >= ERROR_BUFFER_SIZE)
-					strcpy(errorBuffer, "Many unexpected tokens were found!"); // For cases in which the error buffer is too small
-
-			}
-
-			//If reached end of line, print possible errors and new line number to listing file
-			if (c == '\n')
-			{
-
-				fputs(errorBuffer, list_file);
-				errorBuffer[0] = '\0';
-
-				(*lineNum)++;
-
-				int tempSize = (sizeof(char) * 3 + sizeof(char) * (log(*lineNum) / log(10) + 1));
-				// Allocates just enough space for the line number, a period, and a tab (and a NULL terminator) in the form of a character string
-				char* temp = malloc(tempSize);
-
-				//Converts the line number to a string and stores it in "listingBuffer"
-				itoa(*lineNum, temp, 10);
-				//Puts the period and tab after the line number
-				strcat(temp, ".\t");
-
-				temp[tempSize / sizeof(char) - 1] = '\0'; // NULL terminates the string
-
-				// Writes the line number to the listing file
-				if (fputs(temp, list_file) != 0)
-				{
-					printf("\nERROR writing to listing file...");
-				}
-
-				free(temp);
-
-			}
-			// --------------------END OF LISTING FILE WRITING----------------------
-		}
-		
 		if (token != -1)
 		{
-
-			// --------------------START OF OUTPUT FILE WRITING----------------------
-
-			char tokenType[20] = { '\0' };
-			char temp[12];
-			char outputBuffer[70] = { '\0' }; //To print to output file
-
-			//Get token type as string	
-			getTokenType(token, tokenType);
-
-			//Build output buffer: Add "token number: "
-			strcpy(outputBuffer, "token number: ");
-
-			//Turn token into string and add to output buffer
-			sprintf(temp, "%d", token);
-			strcat(outputBuffer, temp);
-
-			//Add tab and "token type: " to output buffer
-			strcat(outputBuffer, "\t\t");
-			strcat(outputBuffer, "token type: ");
-			strcat(outputBuffer, tokenType);
-
-			//Add two tabs, "actual token: ", and actual token to output buffer
-			strcat(outputBuffer, "\t\t\t\t");
-			strcat(outputBuffer, "actual token: ");
-			strcat(outputBuffer, buffer); //actual token will be in token buffer
-			strcat(outputBuffer, "\n");
-
-			//Write output buffer to output file
-			if (fputs(outputBuffer, out_file) != 0)
-			{
-				printf("\nERROR writing to output file...");
-			}
-
-			// --------------------END OF OUTPUT FILE WRITING----------------------
-
+			if (!destructive)
+				fseek(inputFilePtr, ogFilePos, SEEK_SET);
 			return token;
 		}
 		else
-			buffer[0] = '\0'; // "Empties" the string
+			tokenBuffer[0] = '\0'; // "Empties" the string
 	}
 	return SCANEOF;
 }
 
+void updateListFile(int token)
+{
+
+	if (token == SCANEOF)
+	{
+		strcpy(tokenBuffer, "EOF");
+	}
+	//Write "buffer" to listing file ("buffer" now gets every character copied into to and emptied before the next token)
+	else if (fputs(tokenBuffer, listFilePtr))
+	{
+		printf("\nERROR writing to listing file...");
+	}
+	// Write the error into a buffer for later writing to the list file
+	if (token == ERROR)
+	{
+		lexicalErrNum++;
+		strncat(errorBuffer, "Unexpected token '", ERROR_BUFFER_SIZE - strlen(errorBuffer));
+		strncat(errorBuffer, tokenBuffer, ERROR_BUFFER_SIZE - strlen(errorBuffer));
+		strncat(errorBuffer, "'\n", ERROR_BUFFER_SIZE - strlen(errorBuffer));
+		if (strlen(errorBuffer) >= ERROR_BUFFER_SIZE)
+			strcpy(errorBuffer, "Many unexpected tokens were found!"); // For cases in which the error buffer is too small
+	}
+	//If reached end of line, print possible errors and new line number to listing file
+	else if (token == NEWLINE)
+	{
+		fputs(errorBuffer, listFilePtr);
+		errorBuffer[0] = '\0';
+
+		curLineNum++;
+
+		int tempSize = (sizeof(char) * 3 + sizeof(char) * (log(curLineNum) / log(10) + 1));
+		// Allocates just enough space for the line number, a period, and a tab (and a NULL terminator) in the form of a character string
+		char* temp = malloc(tempSize);
+
+		//Converts the line number to a string and stores it in "listingBuffer"
+		itoa(curLineNum, temp, 10);
+		//Puts the period and tab after the line number
+		strcat(temp, ".\t");
+
+		temp[tempSize / sizeof(char) - 1] = '\0'; // NULL terminates the string
+
+		// Writes the line number to the listing file
+		if (fputs(temp, listFilePtr) != 0)
+		{
+			printf("\nERROR writing to listing file...");
+		}
+
+		free(temp);
+	}
+}
+
+void updateOutputFile(int token)
+{
+	// Ensures the token is valid (NEWLINE isn't actually considered part of the language)
+	if (token > -1 && token != NEWLINE)
+	{
+		char tokenType[20] = { '\0' };
+		char temp[12];
+		char outputBuffer[70] = { '\0' }; //To print to output file
+
+		//Get token type as string	
+		getTokenType(token, tokenType);
+
+		//Build output buffer: Add "token number: "
+		strcpy(outputBuffer, "token number: ");
+
+		//Turn token into string and add to output buffer
+		sprintf(temp, "%d", token);
+		strcat(outputBuffer, temp);
+
+		//Add tab and "token type: " to output buffer
+		strcat(outputBuffer, "\t\t");
+		strcat(outputBuffer, "token type: ");
+		strcat(outputBuffer, tokenType);
+
+		//Add two tabs, "actual token: ", and actual token to output buffer
+		strcat(outputBuffer, "\t\t\t\t");
+		strcat(outputBuffer, "actual token: ");
+		strcat(outputBuffer, tokenBuffer); //actual token will be in token buffer
+		strcat(outputBuffer, "\n");
+
+		//Write output buffer to output file
+		if (fputs(outputBuffer, outputFilePtr) != 0)
+		{
+			printf("\nERROR writing to output file...");
+		}
+	}
+}
+
 // Checks if the string stored in buffer matches any of the hardcoded reserved names
 // If it matches a reserved name, then the corresponding token enumeration is returned, else -1 is returned
-int check_reserved(const char* buffer)
+int checkReserved(const char* buffer)
 {
 	int returnVal = -1;
 
