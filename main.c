@@ -12,28 +12,98 @@
 #include "file_util.h"
 #include "token.h"
 
+
 FILE* inputFilePtr;
 FILE* outputFilePtr;
 FILE* listFilePtr;
 FILE* tempFilePtr;
 
 int lexicalErrNum;
+int syntaxErrNum = 0; //totals syntax/parser errors
 int curLineNum;
+
+//For recursive calls, if no more statements are left in the production
+//is 0 or more
+int noMore = -1;
 
 //To hold scanning errors
 char errorBuffer[ERROR_BUFFER_SIZE] = { '\0' };
 //To hold tokens from input file
 char tokenBuffer[50] = { '\0' };
 
-void systemGoal();
+/* 
+	Grammar Production Functions 
+	Note: For all production functions, a return of 0 means error-free.
+	Anything greater than 0, means syntax erros were found.
+*/
+
+//40. <system goal> -> <program> SCANEOF
+void systemGoal(); //done
+
+//1. <program> -> BEGIN <statement list> END
+int program(); //done
+
+//2. <statement list> -> <statement> {<statement list>}
+int statementList(); //incomplete
+
+//3 - 6, 9. <statement>
+int statement(); //incomplete
+
+//7 - 8. <IFTail> ELSE <statementlist> ENDIF
+int iftail(); //incomplete
+
+//10. <id list>  -> ID {, <id list>}
+int idlist(); //incomplete
+
+//11. <expr list> -> <expression> {, <expr list>}
+int exprlist(); //incomplete
+
+//12. <expression> -> <term> {<add op> <term>}
+int expression(); //incomplete
+
+//13. <term> -> <factor> {<mult op> <factor>}
+int term(); //incomplete
+
+//14 - 17. <factor>
+int factor(); //incomplete
+
+//18 - 19. <add op>
+int addop(); //incomplete
+
+//20 - 21. <mult op>
+int multop(); //incomplete
+
+//22. <condition> -> <addition> {<rel op> <addition>}
+int condition(); //incomplete
+
+//23. <addition> -> <multiplication> {<add op> <multiplication>}
+int addition(); //incomplete
+
+//24. <multiplication> -> <unary> {<mult op> <unary>}
+int multiplication(); //incomplete
+
+//25 - 27. <unary>
+int unary(); //incomplete
+
+//28 - 33. <unary>
+int lprimary(); //incomplete
+
+//34 - 39. <unary>
+int relop(); //incomplete
+
+/* 
+	Grammar Helper Functions 	
+*/
 
 // Returns the next token from the scanner
-int nextToken();
+int nextToken(); //NON DESTRUCTIVE
 
 // Gets the next token from the scanner and checks if it is equal to "token"
 // Returns 1 if it is equal
 // Returns 0 if it is not equal
 int match(int token);
+
+//== end grammar functions ===//
 
 // Returns 1 if start was successful
 // Returns 0 if there were problems opening files
@@ -60,12 +130,12 @@ void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFi
 
 int main(int argc, char** argv)
 {
-    char inputFilePath[MAX_PATH_SIZE] = { '\0' };
-    char outputFilePath[MAX_PATH_SIZE] = { '\0' };
+	char inputFilePath[MAX_PATH_SIZE] = { '\0' };
+	char outputFilePath[MAX_PATH_SIZE] = { '\0' };
 	char listFilePath[MAX_PATH_SIZE] = { '\0' };
 	char tempFilePath[MAX_PATH_SIZE] = { '\0' };
 
-	int invalid;
+	//int invalid; unused variable
 
 	// Get command line parameters if they exist
 	getCmdParameters(argc, argv, inputFilePath, outputFilePath);
@@ -73,20 +143,18 @@ int main(int argc, char** argv)
     if (start(inputFilePath, outputFilePath, listFilePath, tempFilePath) == 0)
     { 	
 
-
-
+		//Comment this out to work on parser
 		// START OF OLD SCANNER PROGRAM STUFF
-		int token = -1; // REMOVE THIS
+		/* int token = -1; // REMOVE THIS
 		while (token != SCANEOF) // REMOVE THIS 
 		{ // REMOVE THIS
 			token = scanner(1); // REMOVE THIS
 			updateOutputFile(token); // REMOVE THIS
 		} // REMOVE THIS
-		// END OF OLD SCANNER PROGRAM STUFF
+		// END OF OLD SCANNER PROGRAM STUFF */
 
-
-
-		//systemGoal(); // UNCOMMENT THIS
+		//Begin parser
+		systemGoal(); //Comment this out to work on scanner
 
 		end(inputFilePath, outputFilePath, listFilePath, tempFilePath);
     }
@@ -94,8 +162,12 @@ int main(int argc, char** argv)
     return 0;
 }
 
+//Parser starts here
+//<system goal> -> <program>SCANEOF;
 void systemGoal()
 {
+	printf("\n\nStarting parser... ");
+	
 	if (program())
 	{
 		if (match(SCANEOF))
@@ -105,21 +177,384 @@ void systemGoal()
 	}
 	else
 	{
-		// There was an error in the program
+		// Quit; There was an error in the program
+		printf("\nERROR: Cannot find 'program' function.");
 	}
 }
 
+//<program -> BEGIN <statement list> END
 int program()
 {
-	int returnVal;
+	//counts number of errors in this module
+	int hasErrors = 0;
 
+	//Holds value 0 (token did not match) or 1 (token matches)
+	int checkToken = 0;
+
+  //Check if token matches 'BEGIN'
+  checkToken = match(BEGIN);
+
+	if (checkToken == 0) //token did not match
+	{
+		hasErrors++;
+		syntaxErrNum++; //increase total count of syntax errors
+
+		//Display error
+		printf("\nError: Line %d, expected 'BEGIN'", curLineNum);
+	}
+
+  //After BEGIN, the next token begins at a new line so we have to skip any comments and move to next line
+	char c;
+	while ( (c = getc(inputFilePtr)) != '\n' ) { } //skip entire line
+	curLineNum++;
 	
+	//Continue to next production
+  statementList();
+
+	//Check if token matches 'BEGIN'
+  checkToken = match(END);
+
+	if (checkToken == 0) //token did not match
+	{
+		hasErrors++;
+		syntaxErrNum++;
+
+		//Display error
+		printf("\nError: Line %d, Expected 'END'", curLineNum);
+	}
+	
+	return hasErrors;
+		
 }
+
+//<statement_list> -> {<statement list>}
+int statementList()
+{
+	int returnVal = 0;
+
+	do 
+	{
+		statement(); 
+	} while (noMore == -1);
+
+	return returnVal;
+
+}
+
+//3. <statement> -> ID := <expression>;
+//4. <statement> -> READ (<id list>);
+//5. <statement> -> WRITE (<expr list>);
+//6. <statement> -> IF (<condition>) THEN <statementList><IFTail>
+//9. <statement> -> WHILE (<condition>) {<statementList>} ENDWHILE
+int statement()
+{
+	int hasErrors = 0;
+	int checkToken = -1;
+	noMore = -1; //We have statements to process		
+
+	//I thought switch would work, but going with if else instead --Jeremy
+
+	//3. <statement> -> ID := <expression>; //test for completion
+	if (match(ID) == 1) //token matched
+	{
+		//Check for assignment operator ':='
+		checkToken = nextToken(ASSIGNOP);
+
+		if (checkToken == 0) //incorrect token
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected ':='", curLineNum);			
+		}
+
+		//Continue to next production
+		expression();
+
+		//Check for semicolon
+		checkToken = match(SEMICOLON);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected ';'", curLineNum);
+		}
+
+	}
+
+	//4. <statement> -> READ (<id list>);
+	else if (match(READ) == 1) //token matched
+	{
+		//Check for left parenthesis
+		checkToken = match(LPAREN);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected '('", curLineNum);
+		}
+
+		//Move to next production
+		idlist();
+
+		//Check for right parenthesis
+		checkToken = match(RPAREN);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected ')'", curLineNum);
+		}
+
+	}
+
+	//5. <statement> -> WRITE (<expr list>);
+	else if (match(WRITE) == 1) //token matched
+	{
+		//Check for left parenthesis
+		checkToken = match(LPAREN);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected '('", curLineNum);
+		}
+
+		//Move to next production
+		exprlist();
+
+		//Check for right parenthesis
+		checkToken = match(RPAREN);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected ')'", curLineNum);
+		}
+
+	}
+
+	//6. <statement> -> IF (<condition>) THEN <statementList><IFTail>
+	else if (match(IF)) //token matched
+	{
+		//Check for left parenthesis
+		checkToken = match(LPAREN);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected '('", curLineNum);
+		}
+
+		//Move to next production
+		condition();
+
+		//Check for right parenthesis
+		checkToken = match(RPAREN);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected ')'", curLineNum);
+		}
+
+		//Check for 'then'
+		checkToken = match(THEN);
+
+		//Move to statement list
+		statementList();
+
+		//End if statement
+		iftail();
+	}
+
+	//9. <statement> -> WHILE (<condition>) {<statementList>} ENDWHILE
+	else if (match(WHILE)) //token matched
+	{
+		//Check for left parenthesis
+		checkToken = match(LPAREN);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected '('", curLineNum);
+		}
+
+		//Move to next production
+		condition();
+
+		//Check for right parenthesis
+		checkToken = match(RPAREN);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected ')'", curLineNum);
+		}
+
+		//Check for 'then'
+		checkToken = match(THEN);
+
+		//Move to statement list
+		statementList();
+
+		//Check for end while
+		checkToken = match(ENDWHILE);
+
+		if (checkToken == 0)	
+		{
+			hasErrors++;
+			printf("\nError: Line %d, expected 'ENDWHILE'", curLineNum);
+		}
+
+	}
+
+	//No more statements to process
+	else 
+	{
+		//Error
+		hasErrors++;
+		syntaxErrNum++;
+		printf("\nError: Line %d, expected an identifier, or 'READ', or 'WRITE', or 'IF', or 'WHILE'", curLineNum);
+		noMore++; //might have to change or move this
+	}
+	
+return hasErrors;
+
+}
+
+//7. <IFTail> ELSE <statementlist> ENDIF
+int iftail() //incomplete
+{
+	int hasErrors = 0;
+
+	return hasErrors;
+}
+
+//10. <id list>  -> ID {, <id list>}
+int idlist()//incomplete
+{
+	int hasErrors = 0;
+	int checkToken = -1;
+
+	//Check for ID
+	checkToken = match(ID);
+
+	if (checkToken == 0) //incorrect token
+	{
+		hasErrors++;
+		printf("\nError: Line %d, expected indentifier", curLineNum);
+	}
+
+	//If there's a comma, expect more identifiers
+	while (nextToken(COMMA)) //Not sure if this is the right code
+	{
+		idlist();
+	}
+
+	return hasErrors;
+}
+
+//11. <expr list> -> <expression> {, <expr list>}
+int exprlist() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+
+//12. <expression> -> <term> {<add op> <term>}
+int expression()
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//13. <term> -> <factor> {<mult op> <factor>}
+int term() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//14 - 17. <factor>
+int factor() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//18 - 19. <add op>
+int addop() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//20 - 21. <mult op>
+int multop() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//22. <condition> -> <addition> {<rel op> <addition>}
+int condition() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//23. <addition> -> <multiplication> {<add op> <multiplication>}
+int addition() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//24. <multiplication> -> <unary> {<mult op> <unary>}
+int multiplication() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//25 - 27. <unary>
+int unary() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//28 - 33. <unary>
+int lprimary() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
+//34 - 39. <unary>
+int relop() //incomplete
+{
+	int hasErrors = 0;	
+
+	return hasErrors;
+}
+
 
 // Gets the next token from the scanner and checks if it is equal to "token"
 // Returns 1 if it is equal
 // Returns 0 if it is not equal
-int match(int token)
+int match(int token) //DESTRUCTIVE
 {
 	int returnVal;
 	if (token == scanner(1))
