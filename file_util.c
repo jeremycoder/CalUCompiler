@@ -270,7 +270,7 @@ int changeFileDirectory(char* filename, const char* directory)
 
 // Prompts the user for an input file name until either an existing file's path is entered or the user does not enter anything
 // Returns 0 when the user enters a valid input file path else returns 1
-int getInputFile(char* filePath, const char restrictedExtensions[][FILENAME_MAX], const int resExtCount)
+int getInputFile(char* filePath, const char** restrictedExtensions, const int resExtCount)
 {
     int gettingFileName = 1;
     int invalid = 0;
@@ -327,7 +327,7 @@ int getInputFile(char* filePath, const char restrictedExtensions[][FILENAME_MAX]
 // Prompts the user for an output file name until either a valid file path is entered or the user does not enter anything
 // Returns 0 when the user enters a valid output file path else returns 1
 // Does not allow the user to use an output filename that matches any string in "reservedNames"
-int getOutputFile(char* filePath, const char* defaultDir, const char restrictedExtensions[][FILENAME_MAX], const int resExtCount)
+int getOutputFile(char* filePath, const char* defaultDir, const char** restrictedExtensions, const int resExtCount)
 {
     int gettingFileName = 1;
     int invalid = 0;

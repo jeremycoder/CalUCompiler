@@ -155,15 +155,15 @@ int main(int argc, char** argv)
     if (start(inputFilePath, outputFilePath, listFilePath, tempFilePath) == 0)
     { 	
 
-		//Comment this out to work on parser
+		/* //Comment this out to work on parser
 		// START OF OLD SCANNER PROGRAM STUFF
-		/* int token = -1; // REMOVE THIS
+	    int token = -1; // REMOVE THIS
 		while (token != SCANEOF) // REMOVE THIS 
 		{ // REMOVE THIS
 			token = scanner(1); // REMOVE THIS
 			updateOutputFile(token); // REMOVE THIS
 		} // REMOVE THIS
-		// END OF OLD SCANNER PROGRAM STUFF */
+		// END OF OLD SCANNER PROGRAM STUFF  */
 
 		//Begin parser
 		systemGoal(); //Comment this out to work on scanner
@@ -178,9 +178,9 @@ int main(int argc, char** argv)
 //<system goal> -> <program>SCANEOF;
 void systemGoal()
 {
-	printf("\n\nStarting parser... ");
+	printf("\n\nStarting parser...\n");
 	
-	if (program())
+	if (program() == 0)
 	{
 		if (match(SCANEOF))
 		{
@@ -208,9 +208,10 @@ int program()
 		reportError("BEGIN");
 	}
 
-  //After BEGIN, the next token begins at a new line so we have to skip any comments and move to next line
+	/* Hopefully this is unnecessary now (The newline token was removed, so the scanner should skip newlines again)
+    //After BEGIN, the next token begins at a new line so we have to skip any comments and move to next line
 	char c;
-	while ( (c = getc(inputFilePtr)) != '\n' ) { } //skip entire line
+	while ( (c = getc(inputFilePtr)) != '\n' ) { } //skip entire line*/
 	
 	//Get line number for error reporting
 	lineNum = curLineNum;
@@ -393,12 +394,9 @@ int statement()
 		break;
 
 		default:
-		{			
-			reportError("READ, WRITE, IF, WHILE");			
-		}
 
-		//Checks if next token begins a statement. If not, statementlist loop is terminated
-		checkForStatement();
+			//Checks if next token begins a statement. If not, statementlist loop is terminated
+			checkForStatement();
 
 	}	
 	
@@ -921,7 +919,10 @@ int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* t
 {
 	int returnVal;
 
-	char restrictExtsn[2][FILENAME_MAX];
+	char** restrictExtsn = calloc(2, sizeof(char*));
+	restrictExtsn[0] = malloc(FILENAME_MAX);
+	restrictExtsn[1] = malloc(FILENAME_MAX);
+
 	char temp[FILENAME_MAX];
 
 	strcpy(restrictExtsn[0], ".lis");
@@ -933,10 +934,10 @@ int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* t
 	printf("-----------------------------------\n");
 	printf("\n");
 
-	returnVal = getInputFile(inputFilePath, restrictExtsn, 2);
+	returnVal = getInputFile(inputFilePath, (const char**)restrictExtsn, 2);
 	if (returnVal == 0)
 	{
-		returnVal = getOutputFile(outputFilePath, inputFilePath, restrictExtsn, 1);
+		returnVal = getOutputFile(outputFilePath, inputFilePath, (const char**)restrictExtsn, 1);
 	}
 	// Checks if still valid
 	if (returnVal == 0)
@@ -969,6 +970,10 @@ int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* t
 			fputs("The Temp", tempFilePtr);
 		}
 	}
+
+	free(restrictExtsn[1]);
+	free(restrictExtsn[0]);
+	free(restrictExtsn);
 
 	return returnVal;
 }
@@ -1090,7 +1095,6 @@ int scanner(int destructive)
 				}
 				//tokenBuffer[0] = '\0'; // Uncomment this line to not copy the '-' to the listing file
 				strncat(tokenBuffer, &c, 1);
-				token = NEWLINE;
 
 			}
 			else if (charIsInt(c)) //A negative number
@@ -1225,7 +1229,6 @@ int scanner(int destructive)
 				case '\r':
 					break;
 				case '\n':
-					token = NEWLINE; // For easier use with knowing when to print to the listing file
 					break;
 				default:
 					token = ERROR;
@@ -1271,7 +1274,7 @@ void updateListFile(int token)
 			strcpy(errorBuffer, "Many unexpected tokens were found!"); // For cases in which the error buffer is too small
 	}
 	//If reached end of line, print possible errors and new line number to listing file
-	else if (token == NEWLINE)
+	else if (tokenBuffer[strlen(tokenBuffer) - 1] == '\n')
 	{
 		fputs(errorBuffer, listFilePtr);
 		errorBuffer[0] = '\0';
@@ -1301,8 +1304,8 @@ void updateListFile(int token)
 
 void updateOutputFile(int token)
 {
-	// Ensures the token is valid (NEWLINE isn't actually considered part of the language)
-	if (token > -1 && token != NEWLINE)
+	// Ensures the token is valid
+	if (token > -1)
 	{
 		char tokenType[20] = { '\0' };
 		char temp[12];
