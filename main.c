@@ -376,10 +376,21 @@ int statement()
 		case WHILE:
 		{
 			match(WHILE);
-			condition();			
-			match('{');//Not in the grammar! May continue silently or fail.
+
+			if (match(LPAREN) == 0) //incorrect token
+			{
+				reportError("(");
+			}
+			
+			condition();
+
+			if (match(RPAREN) == 0) //incorrect token
+			{
+				reportError(")");
+			}		
+			
 			statementList();
-			match('}');//Not in the grammar! May continue silently or fail.
+			
 
 			if (match(ENDWHILE) == 0) //incorrect token
 			{
@@ -1524,10 +1535,8 @@ char * getTokenType(int token, char * str)
 //Reports errors
 void reportError(char* expectedToken)
 {
-	long temp;
-	//Display error
-		temp = ftell(inputFilePtr) - colZeroPos;
-		printf("\nError: Line %d, Col %ld, expected %s", lineNum, temp, expectedToken);
+		//Display error		
+		printf("\nError: Line %d, expected %s", lineNum, expectedToken);
 }
 
 //Check for statements
