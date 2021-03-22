@@ -381,9 +381,9 @@ int statement()
 			{
 				reportError("(");
 			}
-			
+					
 			condition();
-
+		
 			if (match(RPAREN) == 0) //incorrect token
 			{
 				reportError(")");
@@ -625,64 +625,60 @@ int multop() //done
 
 //22. <condition> -> <addition> {<rel op> <addition>}
 int condition() 
-{	
+{		
 	addition();
 	int t;
 	t = nextToken();
 
 	while (
-		(t == LESSOP) || (t == LESSEQUALOP) || (t == GREATEROP) || 
-		(t == GREATEREQUALOP) || (t == EQUALOP) || (t == NOTEQUALOP)	
+		(nextToken() == LESSOP) || (nextToken() == LESSEQUALOP) || (nextToken() == GREATEROP) || 
+		(nextToken() == GREATEREQUALOP) || (nextToken() == EQUALOP) || (nextToken() == NOTEQUALOP)	
 	 )
 	{
 		//It all this necessary
-		switch (tempToken)
+		switch (t)
 		{
 			case LESSOP:
 			{ 
-				match(LESSOP);
-				addition();
+				match(LESSOP);				
 			}
 			break;
 
 			case LESSEQUALOP:
 			{
-				match(LESSEQUALOP);
-				addition();
+				match(LESSEQUALOP);				
 			}
 			break;
 
 			case GREATEROP:
 			{
-				match(GREATEROP);
-				addition();
+				match(GREATEROP);				
 			}
 			break;
 
 			case GREATEREQUALOP:
 			{
-				match(GREATEREQUALOP);
-				addition();
+				match(GREATEREQUALOP);				
 			}
 			break;
 
 			case EQUALOP:
 			{
-				match(EQUALOP);
-				addition();
+				match(EQUALOP);				
 			}
 			break;
 
 			case NOTEQUALOP:
 			{
-				match(NOTEQUALOP);
-				addition();
+				match(NOTEQUALOP);				
 			}
 			break;		
 		
 		}		
 
 	}
+
+	addition();
 
 	return 0;
 }
@@ -692,28 +688,28 @@ int addition()
 {	
 	multiplication();
 	int t;
-	t = nextToken();
+	t = nextToken();	
 
-	while ((t == PLUSOP) || (t == MINUSOP))
+	while ((nextToken() == PLUSOP) || (nextToken() == MINUSOP))
 	{		
-		switch (tempToken)
+		switch (t)
 		{
 			case PLUSOP:
 			{ 
-				match(PLUSOP);
-				multiplication();
+				match(PLUSOP);			
 			}
 			break;
 
 			case MINUSOP:
 			{
-				match(MINUSOP);
-				multiplication();
+				match(MINUSOP);				
 			}
 			break;		
 		}		
 
 	}
+
+	multiplication();
 
 	return 0;
 }
@@ -721,14 +717,14 @@ int addition()
 
 //24. <multiplication> -> <unary> {<mult op> <unary>}
 int multiplication()
-{	
+{		
 	unary();
 	int t;
-	t = nextToken();
+	t = nextToken();	
 
-	while ((t == MULTOP) || (t == DIVOP))
-	{		
-		switch (tempToken)
+	while ((nextToken() == MULTOP) || (nextToken() == DIVOP))
+	{				
+		switch (t)
 		{
 			case MULTOP:
 			{ 
@@ -752,7 +748,7 @@ int multiplication()
 
 //25 - 27. <unary>
 int unary() //done
-{
+{	
 	//get next token
 	tempToken = nextToken();
 
