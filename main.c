@@ -21,6 +21,12 @@ FILE* tempFilePtr;
 int lexicalErrNum;
 int syntaxErrNum = 0; //totals syntax/parser errors
 int curLineNum;
+int lineNum; //for error reporting
+long colZeroPos; //variable to hold file position of column 0
+//used to calculate file pointer position for error reporting
+long temp; //temporary variable
+int tempToken = 0; //temporary token variable
+
 
 //For recursive calls, if no more statements are left in the production
 //is 0 or more
@@ -30,6 +36,9 @@ int noMore = -1;
 char errorBuffer[ERROR_BUFFER_SIZE] = { '\0' };
 //To hold tokens from input file
 char tokenBuffer[50] = { '\0' };
+
+//Reports errors
+void reportError(char* expectedToken);
 
 /* 
 	Grammar Production Functions 
@@ -44,52 +53,52 @@ void systemGoal(); //done
 int program(); //done
 
 //2. <statement list> -> <statement> {<statement list>}
-int statementList(); //incomplete
+int statementList(); 
 
 //3 - 6, 9. <statement>
-int statement(); //incomplete
+int statement(); 
 
 //7 - 8. <IFTail> ELSE <statementlist> ENDIF
-int iftail(); //incomplete
+int iftail(); 
 
 //10. <id list>  -> ID {, <id list>}
-int idlist(); //incomplete
+int idlist(); 
 
 //11. <expr list> -> <expression> {, <expr list>}
-int exprlist(); //incomplete
+int exprlist(); 
 
 //12. <expression> -> <term> {<add op> <term>}
-int expression(); //incomplete
+int expression(); 
 
 //13. <term> -> <factor> {<mult op> <factor>}
-int term(); //incomplete
+int term(); 
 
 //14 - 17. <factor>
-int factor(); //incomplete
+int factor(); 
 
 //18 - 19. <add op>
-int addop(); //incomplete
+int addop(); 
 
 //20 - 21. <mult op>
-int multop(); //incomplete
+int multop(); 
 
 //22. <condition> -> <addition> {<rel op> <addition>}
-int condition(); //incomplete
+int condition(); 
 
 //23. <addition> -> <multiplication> {<add op> <multiplication>}
-int addition(); //incomplete
+int addition(); 
 
 //24. <multiplication> -> <unary> {<mult op> <unary>}
-int multiplication(); //incomplete
+int multiplication(); 
 
 //25 - 27. <unary>
-int unary(); //incomplete
+int unary(); 
 
 //28 - 33. <unary>
-int lprimary(); //incomplete
+int lprimary(); 
 
 //34 - 39. <unary>
-int relop(); //incomplete
+int relop(); 
 
 /* 
 	Grammar Helper Functions 	
@@ -102,6 +111,9 @@ int nextToken(); //NON DESTRUCTIVE
 // Returns 1 if it is equal
 // Returns 0 if it is not equal
 int match(int token);
+
+//Checks if code has any more of productions 3,4,5,6, or 9
+void checkForStatement();
 
 //== end grammar functions ===//
 
@@ -185,59 +197,54 @@ void systemGoal()
 //<program -> BEGIN <statement list> END
 int program()
 {
-	//counts number of errors in this module
-	int hasErrors = 0;
-
-	//Holds value 0 (token did not match) or 1 (token matches)
-	int checkToken = 0;
-
   //Check if token matches 'BEGIN'
-  checkToken = match(BEGIN);
+  tempToken = match(BEGIN);
 
-	if (checkToken == 0) //token did not match
+	if (tempToken == 0) //token did not match
 	{
-		hasErrors++;
 		syntaxErrNum++; //increase total count of syntax errors
 
 		//Display error
-		printf("\nError: Line %d, expected 'BEGIN'", curLineNum);
+		reportError("BEGIN");
 	}
 
   //After BEGIN, the next token begins at a new line so we have to skip any comments and move to next line
 	char c;
 	while ( (c = getc(inputFilePtr)) != '\n' ) { } //skip entire line
-	curLineNum++;
+	
+	//Get line number for error reporting
+	lineNum = curLineNum;
+	lineNum++;
+	colZeroPos = ftell(inputFilePtr); //get position of column zero for error reporting
 	
 	//Continue to next production
   statementList();
 
-	//Check if token matches 'BEGIN'
-  checkToken = match(END);
+	//Check if token matches 'END'
+  tempToken = match(END);
 
-	if (checkToken == 0) //token did not match
+	if (tempToken == 0) //token did not match
 	{
-		hasErrors++;
 		syntaxErrNum++;
 
 		//Display error
-		printf("\nError: Line %d, Expected 'END'", curLineNum);
+		reportError("END");
 	}
 	
-	return hasErrors;
+	return 0;
 		
 }
 
-//<statement_list> -> {<statement list>}
+//2. <statement_list> -> {<statement list>}
 int statementList()
-{
-	int returnVal = 0;
-
+{	
 	do 
 	{
 		statement(); 
+
 	} while (noMore == -1);
 
-	return returnVal;
+	return 0;
 
 }
 
@@ -247,307 +254,639 @@ int statementList()
 //6. <statement> -> IF (<condition>) THEN <statementList><IFTail>
 //9. <statement> -> WHILE (<condition>) {<statementList>} ENDWHILE
 int statement()
-{
-	int hasErrors = 0;
-	int checkToken = -1;
+{	
 	noMore = -1; //We have statements to process		
 
-	//I thought switch would work, but going with if else instead --Jeremy
+	//Get next token
+	tempToken = nextToken();
 
-	//3. <statement> -> ID := <expression>; //test for completion
-	if (match(ID) == 1) //token matched
+	switch (tempToken)
 	{
-		//Check for assignment operator ':='
-		checkToken = nextToken(ASSIGNOP);
-
-		if (checkToken == 0) //incorrect token
+		//3. <statement> -> <expression> //done
+		case ID:
 		{
-			hasErrors++;
-			printf("\nError: Line %d, expected ':='", curLineNum);			
+			match(ID);
+
+			//Check for ':='
+			if (match(ASSIGNOP) == 0) //incorrect token
+			{
+				reportError(":=");
+			}
+
+			//call expression production function
+			expression();
+
+			//Check for semicolon
+			if (match(SEMICOLON) == 0) //incorrect token
+			{
+				reportError(";");
+			}
+
+			//Means we have reached end of line, add 1 to line count
+			lineNum = curLineNum;
+			lineNum++;
+			
+		}
+		break;
+		
+		//4. <statement> -> WRITE (<idlist>); //done
+		case READ:
+		{
+			match(READ);
+
+			if (match(LPAREN) == 0) //incorrect token
+			{
+				reportError("(");
+			}
+
+			//call identifier list
+			idlist();
+
+			if (match(RPAREN) == 0) //incorrect token
+			{
+				reportError(")");
+			}
+
+			//Check for semicolon
+			if (match(SEMICOLON) == 0) //incorrect token
+			{
+				reportError(";");
+			}
+
+			//Means we have reached end of line, add 1 to line count
+			lineNum = curLineNum;
+			lineNum++;
+			
+		}
+		break;
+		
+		//5. <statement> -> WRITE (<exprlist>); //done
+		case WRITE:
+		{
+			match(WRITE);
+			if (match(LPAREN) == 0) //incorrect token
+			{
+				reportError("(");
+			}
+
+			//call expression list
+			exprlist();
+
+			if (match(RPAREN) == 0) //incorrect token
+			{
+				reportError(")");
+			}
+
+			//Check for semicolon
+			if (match(SEMICOLON) == 0) //incorrect token
+			{
+				reportError(";");
+			}
+
+			//Means we have reached end of line, add 1 to line count
+			lineNum = curLineNum;
+			lineNum++;
+			
+		}	
+		break;	
+
+		//6. <statement> -> IF (<condition>) THEN  <statementlist> <iftail> //done
+		case IF:
+		{
+			match(IF);
+			if (match(LPAREN) == 0) //incorrect token
+			{
+				reportError("(");
+			}
+
+			condition();
+
+			if (match(THEN) == 0) //incorrect token
+			{
+				reportError("THEN");
+			}
+
+			statementList();
+			iftail();
+		}
+		break;
+		
+		//9. <statement> -> WHILE (<condition>) {<statementlist>} ENDWHILE
+		case WHILE:
+		{
+			match(WHILE);
+			condition();			
+			match('{');//Not in the grammar! May continue silently or fail.
+			statementList();
+			match('}');//Not in the grammar! May continue silently or fail.
+
+			if (match(ENDWHILE) == 0) //incorrect token
+			{
+				reportError("ENDWHILE");
+			}
+
+			//Means we have reached end of line, add 1 to line count
+			lineNum = curLineNum;
+			lineNum++;		
+
+		}
+		break;
+
+		default:
+		{			
+			reportError("READ, WRITE, IF, WHILE");			
 		}
 
-		//Continue to next production
-		expression();
+		//Checks if next token begins a statement. If not, statementlist loop is terminated
+		checkForStatement();
 
-		//Check for semicolon
-		checkToken = match(SEMICOLON);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected ';'", curLineNum);
-		}
-
-	}
-
-	//4. <statement> -> READ (<id list>);
-	else if (match(READ) == 1) //token matched
-	{
-		//Check for left parenthesis
-		checkToken = match(LPAREN);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected '('", curLineNum);
-		}
-
-		//Move to next production
-		idlist();
-
-		//Check for right parenthesis
-		checkToken = match(RPAREN);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected ')'", curLineNum);
-		}
-
-	}
-
-	//5. <statement> -> WRITE (<expr list>);
-	else if (match(WRITE) == 1) //token matched
-	{
-		//Check for left parenthesis
-		checkToken = match(LPAREN);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected '('", curLineNum);
-		}
-
-		//Move to next production
-		exprlist();
-
-		//Check for right parenthesis
-		checkToken = match(RPAREN);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected ')'", curLineNum);
-		}
-
-	}
-
-	//6. <statement> -> IF (<condition>) THEN <statementList><IFTail>
-	else if (match(IF)) //token matched
-	{
-		//Check for left parenthesis
-		checkToken = match(LPAREN);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected '('", curLineNum);
-		}
-
-		//Move to next production
-		condition();
-
-		//Check for right parenthesis
-		checkToken = match(RPAREN);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected ')'", curLineNum);
-		}
-
-		//Check for 'then'
-		checkToken = match(THEN);
-
-		//Move to statement list
-		statementList();
-
-		//End if statement
-		iftail();
-	}
-
-	//9. <statement> -> WHILE (<condition>) {<statementList>} ENDWHILE
-	else if (match(WHILE)) //token matched
-	{
-		//Check for left parenthesis
-		checkToken = match(LPAREN);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected '('", curLineNum);
-		}
-
-		//Move to next production
-		condition();
-
-		//Check for right parenthesis
-		checkToken = match(RPAREN);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected ')'", curLineNum);
-		}
-
-		//Check for 'then'
-		checkToken = match(THEN);
-
-		//Move to statement list
-		statementList();
-
-		//Check for end while
-		checkToken = match(ENDWHILE);
-
-		if (checkToken == 0)	
-		{
-			hasErrors++;
-			printf("\nError: Line %d, expected 'ENDWHILE'", curLineNum);
-		}
-
-	}
-
-	//No more statements to process
-	else 
-	{
-		//Error
-		hasErrors++;
-		syntaxErrNum++;
-		printf("\nError: Line %d, expected an identifier, or 'READ', or 'WRITE', or 'IF', or 'WHILE'", curLineNum);
-		noMore++; //might have to change or move this
-	}
+	}	
 	
-return hasErrors;
+return 0;
 
 }
 
-//7. <IFTail> ELSE <statementlist> ENDIF
-int iftail() //incomplete
+//7 - 8.
+int iftail() //done
 {
-	int hasErrors = 0;
+	tempToken = nextToken();
 
-	return hasErrors;
+	switch(tempToken)
+	{
+		//<IFTail> ELSE <statementlist> ENDIF
+		case ELSE:
+		{
+			match(ELSE);
+			statementList();
+
+			if (match(ENDIF) == 0)
+			{
+				reportError("ENDIF");
+			}
+		}
+
+		//<IFTail> ENDIF
+		case ENDIF:
+		{
+			match(ENDIF);
+		}
+	}
+	statementList();
+	tempToken = match(ENDIF);
+
+	return 0;
 }
 
 //10. <id list>  -> ID {, <id list>}
-int idlist()//incomplete
+int idlist()
 {
-	int hasErrors = 0;
-	int checkToken = -1;
-
 	//Check for ID
-	checkToken = match(ID);
-
-	if (checkToken == 0) //incorrect token
+	if(match(ID) == 0) //incorrect token
 	{
-		hasErrors++;
-		printf("\nError: Line %d, expected indentifier", curLineNum);
+		reportError("identifier");
 	}
 
 	//If there's a comma, expect more identifiers
-	while (nextToken(COMMA)) //Not sure if this is the right code
-	{
+	while (nextToken() == COMMA)
+	{		
+		match(COMMA);
 		idlist();
 	}
 
-	return hasErrors;
+	return 0;
 }
 
 //11. <expr list> -> <expression> {, <expr list>}
-int exprlist() //incomplete
+int exprlist() 
 {
-	int hasErrors = 0;	
+	expression();
 
-	return hasErrors;
+	while (nextToken() == COMMA)
+	{
+		match(COMMA);
+		exprlist();
+	}
+
+	return 0;
 }
 
 
-//12. <expression> -> <term> {<add op> <term>}
+//12. <expression> -> <term> {<add op> <term>} //done
 int expression()
-{
-	int hasErrors = 0;	
+{	
+	term();
 
-	return hasErrors;
+	while (nextToken() == PLUSOP)
+	{
+		match(PLUSOP);
+		term();
+	}	
+
+	return 0;
 }
 
 //13. <term> -> <factor> {<mult op> <factor>}
-int term() //incomplete
+int term() 
 {
-	int hasErrors = 0;	
+	factor();
 
-	return hasErrors;
+	while (nextToken() == MULTOP)
+	{
+		match(MULTOP);
+		factor();
+	}	
+
+	return 0;
 }
 
 //14 - 17. <factor>
-int factor() //incomplete
+int factor() 
 {
-	int hasErrors = 0;	
+	//get next token
+	tempToken = nextToken();
 
-	return hasErrors;
+	switch(tempToken) {
+
+		//14. <factor> -> ( <expression> )
+		case LPAREN:
+		{
+			match(LPAREN);
+			expression();
+			match (RPAREN);
+		}
+		break;
+
+		//15. <factor> -> - <factor>
+		case MINUSOP:
+		{
+			match(MINUSOP);
+			factor();
+		}
+		break;
+
+		//16. <factor> -> ID
+		case ID:
+		{		
+			match(ID);
+		}
+		break;
+
+		//17. <factor> -> INTLITERAL
+		case INTLITERAL:
+		{		
+			match(INTLITERAL);
+		}
+		break;
+
+		//else error
+		default:
+		{
+			reportError("'(', or '-', or identifier or number");
+		}
+	}
+
+	return 0;
 }
 
 //18 - 19. <add op>
-int addop() //incomplete
+int addop() //done
 {
-	int hasErrors = 0;	
+	//get next token
+	tempToken = nextToken();
 
-	return hasErrors;
+	switch(tempToken) 
+	{
+		//18. <add op> -> +
+		case PLUSOP:
+		{
+			match(PLUSOP);
+		}
+		break;
+
+		//19. <add op> -> -
+		case MINUSOP:
+		{
+			match(MINUSOP);
+		}
+		break;
+
+		default:
+		{
+			reportError("'-' or '+'");
+		}
+		break;
+
+	}	
+
+	return 0;
 }
 
 //20 - 21. <mult op>
-int multop() //incomplete
+int multop() //done
 {
-	int hasErrors = 0;	
+	//get next token
+	tempToken = nextToken();
 
-	return hasErrors;
+	switch(tempToken) 
+	{
+		//20. <mult op> -> *
+		case MULTOP:
+		{
+			match(MULTOP);
+		}
+		break;
+
+		//21. <add op> -> /
+		case DIVOP:
+		{
+			match(DIVOP);
+		}
+		break;
+
+		default:
+		{
+			reportError("'*' or '/'");
+		}
+		break;
+
+	}	
+
+	return 0;
 }
 
 //22. <condition> -> <addition> {<rel op> <addition>}
-int condition() //incomplete
-{
-	int hasErrors = 0;	
+int condition() 
+{	
+	addition();
+	int t;
+	t = nextToken();
 
-	return hasErrors;
+	while (
+		(t == LESSOP) || (t == LESSEQUALOP) || (t == GREATEROP) || 
+		(t == GREATEREQUALOP) || (t == EQUALOP) || (t == NOTEQUALOP)	
+	 )
+	{
+		//It all this necessary
+		switch (tempToken)
+		{
+			case LESSOP:
+			{ 
+				match(LESSOP);
+				addition();
+			}
+			break;
+
+			case LESSEQUALOP:
+			{
+				match(LESSEQUALOP);
+				addition();
+			}
+			break;
+
+			case GREATEROP:
+			{
+				match(GREATEROP);
+				addition();
+			}
+			break;
+
+			case GREATEREQUALOP:
+			{
+				match(GREATEREQUALOP);
+				addition();
+			}
+			break;
+
+			case EQUALOP:
+			{
+				match(EQUALOP);
+				addition();
+			}
+			break;
+
+			case NOTEQUALOP:
+			{
+				match(NOTEQUALOP);
+				addition();
+			}
+			break;		
+		
+		}		
+
+	}
+
+	return 0;
 }
 
 //23. <addition> -> <multiplication> {<add op> <multiplication>}
-int addition() //incomplete
-{
-	int hasErrors = 0;	
+int addition() 
+{	
+	multiplication();
+	int t;
+	t = nextToken();
 
-	return hasErrors;
+	while ((t == PLUSOP) || (t == MINUSOP))
+	{		
+		switch (tempToken)
+		{
+			case PLUSOP:
+			{ 
+				match(PLUSOP);
+				multiplication();
+			}
+			break;
+
+			case MINUSOP:
+			{
+				match(MINUSOP);
+				multiplication();
+			}
+			break;		
+		}		
+
+	}
+
+	return 0;
 }
 
-//24. <multiplication> -> <unary> {<mult op> <unary>}
-int multiplication() //incomplete
-{
-	int hasErrors = 0;	
 
-	return hasErrors;
+//24. <multiplication> -> <unary> {<mult op> <unary>}
+int multiplication()
+{	
+	unary();
+	int t;
+	t = nextToken();
+
+	while ((t == MULTOP) || (t == DIVOP))
+	{		
+		switch (tempToken)
+		{
+			case MULTOP:
+			{ 
+				match(MULTOP);
+				unary();
+			}
+			break;
+
+			case DIVOP:
+			{
+				match(DIVOP);
+				unary();
+			}
+			break;		
+		}		
+
+	}
+
+	return 0;
 }
 
 //25 - 27. <unary>
-int unary() //incomplete
+int unary() //done
 {
-	int hasErrors = 0;	
+	//get next token
+	tempToken = nextToken();
 
-	return hasErrors;
+	switch(tempToken) 
+	{
+		//'!'
+		case NOTOP:
+		{
+			match(NOTOP);
+			unary();
+		}
+		break;
+
+		//'-'
+		case MINUSOP:
+		{
+			match(MINUSOP);
+			unary();
+		}
+		break;
+
+		default:
+		{
+			lprimary();
+		}
+	}
+
+	return 0;
 }
 
 //28 - 33. <unary>
-int lprimary() //incomplete
+int lprimary() //done
 {
-	int hasErrors = 0;	
+	//Get next token
+	tempToken = nextToken();
 
-	return hasErrors;
+	switch(tempToken)
+	{
+		case INTLITERAL:
+		{ 
+			match(INTLITERAL);
+		}
+		break;
+
+		case ID:
+		{
+			match(ID);
+		}
+		break;
+
+	  //30. <lprimary -> (<condition>)
+		case LPAREN:
+		{
+			match(LPAREN);
+			condition();
+			match(RPAREN);
+		}
+		break;
+
+		//31. <lprimary -> FALSEOP
+		case FALSEOP:
+		{
+			match(FALSEOP);			
+		}
+		break;
+
+		//32. <lprimary -> TRUEOP
+		case TRUEOP:
+		{
+			match(TRUEOP);
+			
+		}
+		break;
+
+		//33. <lprimary -> FALSEOP
+		case NULLOP:
+		{
+			match(NULLOP);			
+		}
+		break;
+
+		default:
+		{
+			reportError("integer, identifier, condition, falseop, trueop, or nullop");
+		}
+		break;
+	}	
+
+	return 0;
 }
 
 //34 - 39. <unary>
-int relop() //incomplete
-{
-	int hasErrors = 0;	
+int relop() //done
+{	
+	//Get next token
+	tempToken = nextToken();
 
-	return hasErrors;
+	switch(tempToken)
+	{
+		case LESSOP:
+		{ 
+			match(LESSOP);
+		}
+		break;
+
+		case LESSEQUALOP:
+		{
+			match(LESSEQUALOP);
+		}
+		break;
+
+		case GREATEROP:
+		{
+			match(GREATEROP);
+		}
+		break;
+
+		case GREATEREQUALOP:
+		{
+			match(GREATEREQUALOP);
+		}
+		break;
+
+		case EQUALOP:
+		{
+			match(EQUALOP);
+		}
+		break;
+
+		case NOTEQUALOP:
+		{
+			match(NOTEQUALOP);
+		}
+		break;
+
+		default:
+		{
+			reportError("comparison symbol");
+		}
+		break;
+	}
+
+	return 0;
 }
 
 
@@ -1177,4 +1516,26 @@ char * getTokenType(int token, char * str)
 	}
 			
 	return str;
+}
+
+//Reports errors
+void reportError(char* expectedToken)
+{
+	long temp;
+	//Display error
+		temp = ftell(inputFilePtr) - colZeroPos;
+		printf("\nError: Line %d, Col %ld, expected %s", lineNum, temp, expectedToken);
+}
+
+//Check for statements
+void checkForStatement()
+{
+	int myToken;
+	myToken = nextToken();
+
+	//if the next token is not a statement
+	if (!(myToken == ID) || !(myToken == READ) || !(myToken == WRITE) || !(myToken ==IF) || !(myToken == WHILE))
+	{
+		noMore++; //raise flag meaning no more statements
+	}
 }
