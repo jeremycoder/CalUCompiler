@@ -14,7 +14,6 @@
 
 #define STATEMENT_BUFFER_SIZE 100
 
-
 FILE* inputFilePtr;
 FILE* outputFilePtr;
 FILE* listFilePtr;
@@ -184,8 +183,8 @@ void systemGoal()
 	if (match(SCANEOF) == 0) // Expected end of file
 	{
 		reportError("End of File");
-		//printf("\n\nA FATAL ERROR OCCURRED\n\n");
-		//fatalError = 1;
+		printf("\n\nA FATAL ERROR OCCURRED\n\n");
+		fatalError = 1;
 	}
 
 }
@@ -578,7 +577,7 @@ int term()
 
 	if (t == MULTOP || t == DIVOP)
 	{
-		match(MULTOP);
+		match(t);
 		factor();
 	}	
 
@@ -590,6 +589,7 @@ int factor()
 {
 	//get next token
 	tempToken = nextToken();
+	printf("\nTempToken %d", tempToken);
 
 	switch(tempToken) {
 
@@ -612,7 +612,7 @@ int factor()
 
 		//16. <factor> -> ID
 		case ID:
-		{		
+		{				
 			match(ID);
 		}
 		break;
@@ -626,8 +626,9 @@ int factor()
 
 		//else error
 		default:
-		{
+		{			
 			reportError("'(', '-', identifier, or number");
+			match(tempToken);
 		}
 	}
 
@@ -1585,7 +1586,8 @@ char * getTokenType(int token, char * str)
 			break;
 		
 		case ERROR:
-			strcpy(str, "ERROR");					
+			strcpy(str, "ERROR");
+			break;					
 		
 	}
 			
