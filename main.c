@@ -12,6 +12,8 @@
 #include "file_util.h"
 #include "token.h"
 
+#define STATEMENT_BUFFER_SIZE 100
+
 
 FILE* inputFilePtr;
 FILE* outputFilePtr;
@@ -32,10 +34,16 @@ int tempToken = 0; //temporary token variable
 //is 0 or more
 int noMore = -1;
 
+char fatalError = 0;
+
 //To hold scanning errors
-char errorBuffer[ERROR_BUFFER_SIZE] = { '\0' };
+char lexErrBuffer[ERROR_BUFFER_SIZE] = { '\0' };
+//To hold syntactic errors
+char synErrBuffer[ERROR_BUFFER_SIZE] = { '\0' };
 //To hold tokens from input file
 char tokenBuffer[50] = { '\0' };
+//
+char statementBuffer[STATEMENT_BUFFER_SIZE] = { '\0' };
 
 //Reports errors
 void reportError(char* expectedToken);
@@ -117,6 +125,9 @@ void checkForStatement();
 
 //== end grammar functions ===//
 
+// Print the parsed statement to the output file
+void outputStatement();
+
 // Returns 1 if start was successful
 // Returns 0 if there were problems opening files
 int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* tempFilePath);
@@ -154,17 +165,6 @@ int main(int argc, char** argv)
 
     if (start(inputFilePath, outputFilePath, listFilePath, tempFilePath) == 0)
     { 	
-
-		/* //Comment this out to work on parser
-		// START OF OLD SCANNER PROGRAM STUFF
-	    int token = -1; // REMOVE THIS
-		while (token != SCANEOF) // REMOVE THIS 
-		{ // REMOVE THIS
-			token = scanner(1); // REMOVE THIS
-			updateOutputFile(token); // REMOVE THIS
-		} // REMOVE THIS
-		// END OF OLD SCANNER PROGRAM STUFF  */
-
 		//Begin parser
 		systemGoal(); //Comment this out to work on scanner
 
@@ -179,39 +179,32 @@ int main(int argc, char** argv)
 void systemGoal()
 {
 	printf("\n\nStarting parser...\n");
-	
-	if (program() == 0)
+
+	program();
+	if (match(SCANEOF) == 0) // Expected end of file
 	{
-		if (match(SCANEOF))
-		{
-			// Everything is good
-		}
+		reportError("End of File");
+		//printf("\n\nA FATAL ERROR OCCURRED\n\n");
+		//fatalError = 1;
 	}
-	else
-	{
-		// Quit; There was an error in the program
-		printf("\nERROR: Cannot find 'program' function.");
-	}
+
 }
 
 //<program -> BEGIN <statement list> END
 int program()
 {
-  //Check if token matches 'BEGIN'
-  tempToken = match(BEGIN);
+	//Check if token matches 'BEGIN'
+	tempToken = nextToken();
 
-	if (tempToken == 0) //token did not match
+	if (tempToken == BEGIN)
 	{
-		syntaxErrNum++; //increase total count of syntax errors
-
-		//Display error
-		reportError("BEGIN");
+		match(BEGIN);
 	}
-
-	/* Hopefully this is unnecessary now (The newline token was removed, so the scanner should skip newlines again)
-    //After BEGIN, the next token begins at a new line so we have to skip any comments and move to next line
-	char c;
-	while ( (c = getc(inputFilePtr)) != '\n' ) { } //skip entire line*/
+	else //token did not match
+	{
+		//Display error
+		reportError("\"BEGIN\"");
+	}
 	
 	//Get line number for error reporting
 	lineNum = curLineNum;
@@ -219,18 +212,22 @@ int program()
 	colZeroPos = ftell(inputFilePtr); //get position of column zero for error reporting
 	
 	//Continue to next production
-  statementList();
+	statementList();
 
 	//Check if token matches 'END'
-  tempToken = match(END);
+	tempToken = nextToken();
 
-	if (tempToken == 0) //token did not match
+	if (tempToken == END)
 	{
-		syntaxErrNum++;
-
-		//Display error
-		reportError("END");
+		match(END);
 	}
+	else //token did not match
+	{
+		//Display error
+		reportError("\"END\"");
+	}
+
+	outputStatement();
 	
 	return 0;
 		
@@ -241,7 +238,7 @@ int statementList()
 {	
 	do 
 	{
-		statement(); 
+		statement();
 
 	} while (noMore == -1);
 
@@ -256,7 +253,9 @@ int statementList()
 //9. <statement> -> WHILE (<condition>) {<statementList>} ENDWHILE
 int statement()
 {	
-	noMore = -1; //We have statements to process		
+	noMore = -1; //We have statements to process	
+
+	outputStatement();
 
 	//Get next token
 	tempToken = nextToken();
@@ -267,20 +266,31 @@ int statement()
 		case ID:
 		{
 			match(ID);
+			int t = nextToken();
 
 			//Check for ':='
-			if (match(ASSIGNOP) == 0) //incorrect token
+			if (t == ASSIGNOP) //incorrect token
 			{
-				reportError(":=");
+				match(ASSIGNOP);
+			}
+			else
+			{
+				reportError("\":=\"");
 			}
 
 			//call expression production function
 			expression();
 
+			t = nextToken();
+
 			//Check for semicolon
-			if (match(SEMICOLON) == 0) //incorrect token
+			if (t == SEMICOLON) //incorrect token
 			{
-				reportError(";");
+				match(SEMICOLON);
+			}
+			else
+			{
+				reportError("';'");
 			}
 
 			//Means we have reached end of line, add 1 to line count
@@ -294,24 +304,41 @@ int statement()
 		case READ:
 		{
 			match(READ);
+			int t = nextToken();
 
-			if (match(LPAREN) == 0) //incorrect token
+			if (t == LPAREN)
 			{
-				reportError("(");
+				match(LPAREN);
+			}
+			else
+			{
+				reportError("'('");
 			}
 
 			//call identifier list
 			idlist();
 
-			if (match(RPAREN) == 0) //incorrect token
+			t = nextToken();
+
+			if (t == RPAREN)
 			{
-				reportError(")");
+				match(RPAREN);
+			}
+			else
+			{
+				reportError("')'");
 			}
 
+			t = nextToken();
+
 			//Check for semicolon
-			if (match(SEMICOLON) == 0) //incorrect token
+			if (t == SEMICOLON)
 			{
-				reportError(";");
+				match(SEMICOLON);
+			}
+			else
+			{
+				reportError("';'");
 			}
 
 			//Means we have reached end of line, add 1 to line count
@@ -325,23 +352,41 @@ int statement()
 		case WRITE:
 		{
 			match(WRITE);
-			if (match(LPAREN) == 0) //incorrect token
+			int t = nextToken();
+
+			if (t == LPAREN)
 			{
-				reportError("(");
+				match(LPAREN);
+			}
+			else
+			{
+				reportError("'('");
 			}
 
 			//call expression list
 			exprlist();
 
-			if (match(RPAREN) == 0) //incorrect token
+			t = nextToken();
+
+			if (t == RPAREN)
 			{
-				reportError(")");
+				match(RPAREN);
+			}
+			else
+			{
+				reportError("')'");
 			}
 
+			t = nextToken();
+
 			//Check for semicolon
-			if (match(SEMICOLON) == 0) //incorrect token
+			if (t == SEMICOLON)
 			{
-				reportError(";");
+				match(SEMICOLON);
+			}
+			else
+			{
+				reportError("';'");
 			}
 
 			//Means we have reached end of line, add 1 to line count
@@ -355,16 +400,28 @@ int statement()
 		case IF:
 		{
 			match(IF);
-			if (match(LPAREN) == 0) //incorrect token
+			int t = nextToken();
+
+			if (t == LPAREN)
 			{
-				reportError("(");
+				match(LPAREN);
+			}
+			else
+			{
+				reportError("'('");
 			}
 
 			condition();
 
-			if (match(THEN) == 0) //incorrect token
+			t = nextToken();
+
+			if (t == THEN)
 			{
-				reportError("THEN");
+				match(THEN);
+			}
+			else
+			{
+				reportError("\"THEN\"");
 			}
 
 			statementList();
@@ -376,25 +433,41 @@ int statement()
 		case WHILE:
 		{
 			match(WHILE);
+			int t = nextToken();
 
-			if (match(LPAREN) == 0) //incorrect token
+			if (t == LPAREN)
 			{
-				reportError("(");
+				match(LPAREN);
+			}
+			else
+			{
+				reportError("'('");
 			}
 					
 			condition();
+
+			t = nextToken();
 		
-			if (match(RPAREN) == 0) //incorrect token
+			if (t == RPAREN)
 			{
-				reportError(")");
+				match(RPAREN);
+			}
+			else
+			{
+				reportError("')'");
 			}		
 			
 			statementList();
 			
+			t = nextToken();
 
-			if (match(ENDWHILE) == 0) //incorrect token
+			if (t == ENDWHILE)
 			{
-				reportError("ENDWHILE");
+				match(ENDWHILE);
+			}
+			else
+			{
+				reportError("\"ENDWHILE\"");
 			}
 
 			//Means we have reached end of line, add 1 to line count
@@ -409,7 +482,9 @@ int statement()
 			//Checks if next token begins a statement. If not, statementlist loop is terminated
 			checkForStatement();
 
-	}	
+	}
+
+	outputStatement();
 	
 return 0;
 
@@ -430,7 +505,7 @@ int iftail() //done
 
 			if (match(ENDIF) == 0)
 			{
-				reportError("ENDIF");
+				reportError("\"ENDIF\"");
 			}
 		}
 
@@ -470,7 +545,7 @@ int exprlist()
 {
 	expression();
 
-	while (nextToken() == COMMA)
+	if (nextToken() == COMMA)
 	{
 		match(COMMA);
 		exprlist();
@@ -484,12 +559,13 @@ int exprlist()
 int expression()
 {	
 	term();
+	int t = nextToken();
 
-	while (nextToken() == PLUSOP)
+	if (t == PLUSOP || t == MINUSOP)
 	{
-		match(PLUSOP);
+		match(t);
 		term();
-	}	
+	}
 
 	return 0;
 }
@@ -498,8 +574,9 @@ int expression()
 int term() 
 {
 	factor();
+	int t = nextToken();
 
-	while (nextToken() == MULTOP)
+	if (t == MULTOP || t == DIVOP)
 	{
 		match(MULTOP);
 		factor();
@@ -550,7 +627,7 @@ int factor()
 		//else error
 		default:
 		{
-			reportError("'(', or '-', or identifier or number");
+			reportError("'(', '-', identifier, or number");
 		}
 	}
 
@@ -625,60 +702,18 @@ int multop() //done
 
 //22. <condition> -> <addition> {<rel op> <addition>}
 int condition() 
-{		
+{	
 	addition();
-	int t;
-	t = nextToken();
+	int t = nextToken();
 
-	while (
-		(nextToken() == LESSOP) || (nextToken() == LESSEQUALOP) || (nextToken() == GREATEROP) || 
-		(nextToken() == GREATEREQUALOP) || (nextToken() == EQUALOP) || (nextToken() == NOTEQUALOP)	
-	 )
+	if (
+		(t == LESSOP) || (t == LESSEQUALOP) || (t == GREATEROP) || 
+		(t == GREATEREQUALOP) || (t == EQUALOP) || (t == NOTEQUALOP)	
+	   )
 	{
-		//It all this necessary
-		switch (t)
-		{
-			case LESSOP:
-			{ 
-				match(LESSOP);				
-			}
-			break;
-
-			case LESSEQUALOP:
-			{
-				match(LESSEQUALOP);				
-			}
-			break;
-
-			case GREATEROP:
-			{
-				match(GREATEROP);				
-			}
-			break;
-
-			case GREATEREQUALOP:
-			{
-				match(GREATEREQUALOP);				
-			}
-			break;
-
-			case EQUALOP:
-			{
-				match(EQUALOP);				
-			}
-			break;
-
-			case NOTEQUALOP:
-			{
-				match(NOTEQUALOP);				
-			}
-			break;		
-		
-		}		
-
+		match(t);
+		addition();
 	}
-
-	addition();
 
 	return 0;
 }
@@ -690,26 +725,11 @@ int addition()
 	int t;
 	t = nextToken();	
 
-	while ((nextToken() == PLUSOP) || (nextToken() == MINUSOP))
+	if ((t == PLUSOP) || (t == MINUSOP))
 	{		
-		switch (t)
-		{
-			case PLUSOP:
-			{ 
-				match(PLUSOP);			
-			}
-			break;
-
-			case MINUSOP:
-			{
-				match(MINUSOP);				
-			}
-			break;		
-		}		
-
+		match(t);
+		multiplication();
 	}
-
-	multiplication();
 
 	return 0;
 }
@@ -717,30 +737,15 @@ int addition()
 
 //24. <multiplication> -> <unary> {<mult op> <unary>}
 int multiplication()
-{		
+{
 	unary();
 	int t;
-	t = nextToken();	
+	t = nextToken();
 
-	while ((nextToken() == MULTOP) || (nextToken() == DIVOP))
-	{				
-		switch (t)
-		{
-			case MULTOP:
-			{ 
-				match(MULTOP);
-				unary();
-			}
-			break;
-
-			case DIVOP:
-			{
-				match(DIVOP);
-				unary();
-			}
-			break;		
-		}		
-
+	if ((t == MULTOP) || (t == DIVOP))
+	{			
+		match(t);
+		unary();	
 	}
 
 	return 0;
@@ -819,11 +824,10 @@ int lprimary() //done
 		case TRUEOP:
 		{
 			match(TRUEOP);
-			
 		}
 		break;
 
-		//33. <lprimary -> FALSEOP
+		//33. <lprimary -> NULLOP
 		case NULLOP:
 		{
 			match(NULLOP);			
@@ -886,7 +890,7 @@ int relop() //done
 
 		default:
 		{
-			reportError("comparison symbol");
+			reportError("relational operator");
 		}
 		break;
 	}
@@ -992,6 +996,20 @@ void end(char* inputFilePath, char* outputFilePath, char* listFilePath, char* te
 	sprintf(tokenBuffer, "\n\nThere are %d lexical errors.", lexicalErrNum); // Resuses the token buffer temporarily because why not
 	fputs(tokenBuffer, listFilePtr); // Puts the total number of errors at the end of the list file
 
+	sprintf(tokenBuffer, "\nThere are %d syntax errors.", syntaxErrNum);
+	fputs(tokenBuffer, listFilePtr);
+
+	if (fatalError)
+		sprintf(tokenBuffer, "\nThe program did not finish compilation.");
+	else
+	{
+		if (syntaxErrNum == 0 && lexicalErrNum == 0)
+			sprintf(tokenBuffer, "\nThe program compiled with no errors.");
+		else
+			sprintf(tokenBuffer, "\nThe program compiled with a total of %d errors.", (syntaxErrNum + lexicalErrNum));
+	}
+	fputs(tokenBuffer, listFilePtr);
+
 	rewind(tempFilePtr);
 	copyFileContents(tempFilePtr, outputFilePtr); // In this case copies "The Temp" into the end of the output file (current file position)
 
@@ -1002,6 +1020,19 @@ void end(char* inputFilePath, char* outputFilePath, char* listFilePath, char* te
 
 	//if (fileExists("temp.out"))
 		//remove("temp.out");
+}
+
+// Print the parsed statement to the output file
+void outputStatement()
+{
+	if (statementBuffer[0] != '\0')
+	{
+		// Note: "statementBuffer" receives its data in "updateOutputFile()"
+
+		fputs(statementBuffer, outputFilePtr);
+		fputs("\n\n", outputFilePtr);
+		statementBuffer[0] = '\0';
+	}
 }
 
 // Returns 1 if the character is an alpha ASCII character, else returns 0
@@ -1158,95 +1189,110 @@ int scanner(int destructive)
 			//Check for other tokens
 			switch (c)
 			{
-				case '(':
-					token = LPAREN;
-					break;
-				case ')':
-					token = RPAREN;
-					break;
-				case ';':
-					token = SEMICOLON;
-					break;
-				case ',':
-					token = COMMA;
-					break;
-				case '+':
-					token = PLUSOP;
-					break;
-				case '*':
-					token = MULTOP;
-					break;
-				case '/':
-					token = DIVOP;
-					break;
-				case '!':
-					token = NOTOP;
-					break;
-				case '=':
-					token = EQUALOP;
-					break;
+			case '(':
+				token = LPAREN;
+				break;
+			case ')':
+				token = RPAREN;
+				break;
+			case ';':
+				token = SEMICOLON;
+				break;
+			case ',':
+				token = COMMA;
+				break;
+			case '+':
+				token = PLUSOP;
+				break;
+			case '*':
+				token = MULTOP;
+				break;
+			case '/':
+				token = DIVOP;
+				break;
+			case '!':
+				token = NOTOP;
+				break;
+			case '=':
+				token = EQUALOP;
+				break;
 				//Operators with two characters
-				case ':':
-					c = getc(inputFilePtr);
-					strncat(tokenBuffer, &c, 1); //copy c to token buffer
-					if (c == '=')
-					{
-						token = ASSIGNOP;
-					}
-					else
-					{
-						token = ERROR;
-					}
-					break;
-				case '<':
-					c = getc(inputFilePtr);
-					strncat(tokenBuffer, &c, 1); //copy c to token buffer
-					if (c == '=')
-					{
-						token = LESSEQUALOP;
-					}
-					else if (c == '>')
-					{
-						token = NOTEQUALOP;
-					}
-					else
-					{
-						token = LESSOP;
-					}
-					break;
-				case '>':
-					c = getc(inputFilePtr);
-					strncat(tokenBuffer, &c, 1); //copy c to token buffer
-					if (c == '=')
-					{
-						token = GREATEREQUALOP;
-					}
-					else
-					{
-						token = GREATEROP;
-					}
-					break;
-				case EOF:
-					token = SCANEOF;
-					break;
-				case ' ':
-					break;
-				case '\t':
-					break;
-				case '\r':
-					break;
-				case '\n':
-					break;
-				default:
+			case ':':
+				c = getc(inputFilePtr);
+				strncat(tokenBuffer, &c, 1); //copy c to token buffer
+				if (c == '=')
+				{
+					token = ASSIGNOP;
+				}
+				else
+				{
 					token = ERROR;
+				}
+				break;
+			case '<':
+				c = getc(inputFilePtr);
+				strncat(tokenBuffer, &c, 1); //copy c to token buffer
+				if (c == '=')
+				{
+					token = LESSEQUALOP;
+				}
+				else if (c == '>')
+				{
+					token = NOTEQUALOP;
+				}
+				else
+				{
+					token = LESSOP;
+				}
+				break;
+			case '>':
+				c = getc(inputFilePtr);
+				strncat(tokenBuffer, &c, 1); //copy c to token buffer
+				if (c == '=')
+				{
+					token = GREATEREQUALOP;
+				}
+				else
+				{
+					token = GREATEROP;
+				}
+				break;
+			case EOF:
+				token = SCANEOF;
+				break;
+			case ' ':
+				break;
+			case '\t':
+				break;
+			case '\r':
+				break;
+			case '\n':
+				break;
+			default:
+				token = ERROR;
 			}
 		}
 
 		// Updates the List file (including spaces)
 		if (destructive)
+		{
+			// Ensures that if the next character is a newline, it gets added to the token buffer
+			if (token != ERROR && c != '\n')
+			{
+				long lastPos = ftell(inputFilePtr);
+				c = getc(inputFilePtr);
+				if (c != '\n')
+					fseek(inputFilePtr, lastPos, SEEK_SET);
+				else
+					strncat(tokenBuffer, "\n", 1);
+			}
 			updateListFile(token);
+		}
 
-		if (token != -1)
+		if (token == ERROR)
+			token = -1;
+
+		if (token > -1)
 		{
 			if (!destructive)
 				fseek(inputFilePtr, ogFilePos, SEEK_SET);
@@ -1264,27 +1310,38 @@ void updateListFile(int token)
 	if (token == SCANEOF)
 	{
 		strcpy(tokenBuffer, "EOF");
+		fputs("\n", listFilePtr);
+		fputs(synErrBuffer, listFilePtr);
+		synErrBuffer[0] = '\0';
 	}
-	//Write "buffer" to listing file ("buffer" now gets every character copied into to and emptied before the next token)
-	else if (fputs(tokenBuffer, listFilePtr))
+	//Write "tokenBuffer" to listing file ("tokenBuffer" now gets every character copied into to and emptied before the next token)
+	if (fputs(tokenBuffer, listFilePtr))
 	{
 		printf("\nERROR writing to listing file...");
 	}
 	// Write the error into a buffer for later writing to the list file
 	if (token == ERROR)
 	{
+		char temp[10];
+		itoa(curLineNum, temp, 10);
+
 		lexicalErrNum++;
-		strncat(errorBuffer, "Unexpected token '", ERROR_BUFFER_SIZE - strlen(errorBuffer));
-		strncat(errorBuffer, tokenBuffer, ERROR_BUFFER_SIZE - strlen(errorBuffer));
-		strncat(errorBuffer, "'\n", ERROR_BUFFER_SIZE - strlen(errorBuffer));
-		if (strlen(errorBuffer) >= ERROR_BUFFER_SIZE)
-			strcpy(errorBuffer, "Many unexpected tokens were found!"); // For cases in which the error buffer is too small
+		strncat(lexErrBuffer, "Lexical error on line ", ERROR_BUFFER_SIZE - strlen(lexErrBuffer));
+		strncat(lexErrBuffer, temp, ERROR_BUFFER_SIZE - strlen(lexErrBuffer));
+		strncat(lexErrBuffer, ": Unexpected token '", ERROR_BUFFER_SIZE - strlen(lexErrBuffer));
+		strncat(lexErrBuffer, tokenBuffer, ERROR_BUFFER_SIZE - strlen(lexErrBuffer));
+		strncat(lexErrBuffer, "'\n", ERROR_BUFFER_SIZE - strlen(lexErrBuffer));
+		if (strlen(lexErrBuffer) >= ERROR_BUFFER_SIZE)
+			strcpy(lexErrBuffer, "Many unexpected tokens were found!"); // For cases in which the error buffer is too small
 	}
 	//If reached end of line, print possible errors and new line number to listing file
-	else if (tokenBuffer[strlen(tokenBuffer) - 1] == '\n')
+	if (tokenBuffer[strlen(tokenBuffer) - 1] == '\n')
 	{
-		fputs(errorBuffer, listFilePtr);
-		errorBuffer[0] = '\0';
+		fputs(lexErrBuffer, listFilePtr);
+		lexErrBuffer[0] = '\0';
+
+		fputs(synErrBuffer, listFilePtr);
+		synErrBuffer[0] = '\0';
 
 		curLineNum++;
 
@@ -1314,12 +1371,19 @@ void updateOutputFile(int token)
 	// Ensures the token is valid
 	if (token > -1)
 	{
+		// The removes a newline character if there was one
+		if (tokenBuffer[strlen(tokenBuffer) - 1] == '\n')
+			tokenBuffer[strlen(tokenBuffer) - 1] = '\0';
+
 		char tokenType[20] = { '\0' };
 		char temp[12];
 		char outputBuffer[70] = { '\0' }; //To print to output file
 
 		//Get token type as string	
 		getTokenType(token, tokenType);
+
+		strncat(statementBuffer, tokenType, STATEMENT_BUFFER_SIZE - strlen(statementBuffer));
+		strncat(statementBuffer, " ", STATEMENT_BUFFER_SIZE - strlen(statementBuffer));
 
 		//Build output buffer: Add "token number: "
 		strcpy(outputBuffer, "token number: ");
@@ -1531,8 +1595,22 @@ char * getTokenType(int token, char * str)
 //Reports errors
 void reportError(char* expectedToken)
 {
-		//Display error		
-		printf("\nError: Line %d, expected %s", lineNum, expectedToken);
+	//Display error
+	//printf("\nError: Line %d, expected %s", lineNum, expectedToken);
+
+	char temp[10];
+	itoa(curLineNum, temp, 10);
+
+	syntaxErrNum++;
+	strncat(synErrBuffer, "Syntax error on line ", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+	strncat(synErrBuffer, temp, ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+	strncat(synErrBuffer, " (Expected ", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+	strncat(synErrBuffer, expectedToken, ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+	strncat(synErrBuffer, "): Found \"", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+	strncat(synErrBuffer, tokenBuffer, ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+	strncat(synErrBuffer, "\"\n", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+	if (strlen(synErrBuffer) >= ERROR_BUFFER_SIZE)
+		strcpy(synErrBuffer, "Many errors tokens were found!"); // For cases in which the error buffer is too small
 }
 
 //Check for statements
