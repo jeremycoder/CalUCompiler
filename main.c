@@ -234,7 +234,7 @@ int program()
 		
 }
 
-//2. <statement_list> -> {<statement list>}
+//2. <statement_list> -> statement {<statement list>}
 int statementList()
 {	
 	do 
@@ -491,11 +491,14 @@ int statement()
 
 	default:
 	{
+		int t = nextToken();
 		// Can allow the parser to recover from a potentially fatal error if a semicolon can be found
-		while (errStateFlag == 1 && nextToken() != SCANEOF)
+		while (errStateFlag == 1 && t != SCANEOF && t != END)
 		{
-			if (match(SEMICOLON))
+			if (match(SEMICOLON) == 1)
 				errStateFlag = 0;
+			else
+				t = nextToken();
 		}
 		
 		//Checks if next token begins a statement. If not, statementlist loop is terminated
@@ -518,26 +521,37 @@ int iftail() //done
 
 	switch(tempToken)
 	{
-		//<IFTail> ELSE <statementlist> ENDIF
+		//<IFTail> -> ELSE <statementlist> ENDIF
 		case ELSE:
 		{
 			match(ELSE);
 			statementList();
+			int t = nextToken();
 
-			if (match(ENDIF) == 0)
+			if (t == ENDIF)
+			{
+				match(ENDIF);
+			}
+			else
 			{
 				reportError("\"ENDIF\"");
 			}
 		}
+		break;
 
-		//<IFTail> ENDIF
+		//<IFTail> -> ENDIF
 		case ENDIF:
 		{
 			match(ENDIF);
 		}
+		break;
+		default:
+		{
+			reportError("\"ENDIF\" or \"ELSE\"");
+			errStateFlag = 1;
+		}
+		break;
 	}
-	statementList();
-	tempToken = match(ENDIF);
 
 	return 0;
 }
@@ -939,6 +953,7 @@ int relop() //done
 int match(int token) //DESTRUCTIVE
 {
 	int returnVal = 0;
+	//printf("\nMatching %d with nextToken: %d\n", token, nextToken());
 	if (token == scanner(1))
 	{
 		returnVal = 1;
@@ -1651,11 +1666,12 @@ void checkForStatement()
 {
 	int myToken;
 	myToken = nextToken();
+
 	//if the next token is not a statement
 	if (!(myToken == ID || myToken == READ || myToken == WRITE || myToken == IF || myToken == WHILE))
 	{
 		// If the next token is not the beginning of a statement or the end of a statement then it must be a syntax error
-		if (!(myToken == ENDWHILE || myToken == END || myToken == THEN || myToken == ENDIF || myToken == SCANEOF))
+		if (!(myToken == ENDWHILE || myToken == END || myToken == ENDIF || myToken == SCANEOF))
 		{
 			reportError("statement");
 			errStateFlag = 1;
@@ -1663,7 +1679,7 @@ void checkForStatement()
 			{
 				match(-1);
 				myToken = nextToken();
-				if (myToken == ID || myToken == READ || myToken == WRITE || myToken == IF || myToken == WHILE)
+				if (myToken == ID || myToken == READ || myToken == WRITE || myToken == IF || myToken == WHILE || myToken == END)
 				{
 					errStateFlag = 0;
 				}
