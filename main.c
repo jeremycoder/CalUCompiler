@@ -28,6 +28,8 @@ long colZeroPos; //variable to hold file position of column 0
 long temp; //temporary variable
 int tempToken = 0; //temporary token variable
 
+int errStateFlag = 0; //set to 1 when the current line/statement should be skipped
+
 
 //For recursive calls, if no more statements are left in the production
 //is 0 or more
@@ -251,7 +253,7 @@ int statementList()
 //6. <statement> -> IF (<condition>) THEN <statementList><IFTail>
 //9. <statement> -> WHILE (<condition>) {<statementList>} ENDWHILE
 int statement()
-{	
+{
 	noMore = -1; //We have statements to process	
 
 	outputStatement();
@@ -262,230 +264,239 @@ int statement()
 	switch (tempToken)
 	{
 		//3. <statement> -> <expression> //done
-		case ID:
+	case ID:
+	{
+		match(ID);
+		int t = nextToken();
+
+		//Check for ':='
+		if (t == ASSIGNOP) //incorrect token
 		{
-			match(ID);
-			int t = nextToken();
-
-			//Check for ':='
-			if (t == ASSIGNOP) //incorrect token
-			{
-				match(ASSIGNOP);
-			}
-			else
-			{
-				reportError("\":=\"");
-			}
-
-			//call expression production function
-			expression();
-
-			t = nextToken();
-
-			//Check for semicolon
-			if (t == SEMICOLON) //incorrect token
-			{
-				match(SEMICOLON);
-			}
-			else
-			{
-				reportError("';'");
-			}
-
-			//Means we have reached end of line, add 1 to line count
-			lineNum = curLineNum;
-			lineNum++;
-			
+			match(ASSIGNOP);
 		}
-		break;
-		
-		//4. <statement> -> WRITE (<idlist>); //done
-		case READ:
+		else
 		{
-			match(READ);
-			int t = nextToken();
-
-			if (t == LPAREN)
-			{
-				match(LPAREN);
-			}
-			else
-			{
-				reportError("'('");
-			}
-
-			//call identifier list
-			idlist();
-
-			t = nextToken();
-
-			if (t == RPAREN)
-			{
-				match(RPAREN);
-			}
-			else
-			{
-				reportError("')'");
-			}
-
-			t = nextToken();
-
-			//Check for semicolon
-			if (t == SEMICOLON)
-			{
-				match(SEMICOLON);
-			}
-			else
-			{
-				reportError("';'");
-			}
-
-			//Means we have reached end of line, add 1 to line count
-			lineNum = curLineNum;
-			lineNum++;
-			
+			reportError("\":=\"");
 		}
-		break;
-		
-		//5. <statement> -> WRITE (<exprlist>); //done
-		case WRITE:
+
+		//call expression production function
+		expression();
+
+		t = nextToken();
+
+		//Check for semicolon
+		if (t == SEMICOLON) //incorrect token
 		{
-			match(WRITE);
-			int t = nextToken();
-
-			if (t == LPAREN)
-			{
-				match(LPAREN);
-			}
-			else
-			{
-				reportError("'('");
-			}
-
-			//call expression list
-			exprlist();
-
-			t = nextToken();
-
-			if (t == RPAREN)
-			{
-				match(RPAREN);
-			}
-			else
-			{
-				reportError("')'");
-			}
-
-			t = nextToken();
-
-			//Check for semicolon
-			if (t == SEMICOLON)
-			{
-				match(SEMICOLON);
-			}
-			else
-			{
-				reportError("';'");
-			}
-
-			//Means we have reached end of line, add 1 to line count
-			lineNum = curLineNum;
-			lineNum++;
-			
-		}	
-		break;	
-
-		//6. <statement> -> IF (<condition>) THEN  <statementlist> <iftail> //done
-		case IF:
-		{
-			match(IF);
-			int t = nextToken();
-
-			if (t == LPAREN)
-			{
-				match(LPAREN);
-			}
-			else
-			{
-				reportError("'('");
-			}
-
-			condition();
-
-			t = nextToken();
-
-			if (t == THEN)
-			{
-				match(THEN);
-			}
-			else
-			{
-				reportError("\"THEN\"");
-			}
-
-			statementList();
-			iftail();
+			match(SEMICOLON);
 		}
-		break;
-		
-		//9. <statement> -> WHILE (<condition>) {<statementlist>} ENDWHILE
-		case WHILE:
+		else
 		{
-			match(WHILE);
-			int t = nextToken();
-
-			if (t == LPAREN)
-			{
-				match(LPAREN);
-			}
-			else
-			{
-				reportError("'('");
-			}
-					
-			condition();
-
-			t = nextToken();
-		
-			if (t == RPAREN)
-			{
-				match(RPAREN);
-			}
-			else
-			{
-				reportError("')'");
-			}		
-			
-			statementList();
-			
-			t = nextToken();
-
-			if (t == ENDWHILE)
-			{
-				match(ENDWHILE);
-			}
-			else
-			{
-				reportError("\"ENDWHILE\"");
-			}
-
-			//Means we have reached end of line, add 1 to line count
-			lineNum = curLineNum;
-			lineNum++;		
-
+			reportError("';'");
 		}
-		break;
 
-		default:
+		//Means we have reached end of line, add 1 to line count
+		lineNum = curLineNum;
+		lineNum++;
 
-			//Checks if next token begins a statement. If not, statementlist loop is terminated
-			checkForStatement();
+	}
+	break;
+
+	//4. <statement> -> WRITE (<idlist>); //done
+	case READ:
+	{
+		match(READ);
+		int t = nextToken();
+
+		if (t == LPAREN)
+		{
+			match(LPAREN);
+		}
+		else
+		{
+			reportError("'('");
+		}
+
+		//call identifier list
+		idlist();
+
+		t = nextToken();
+
+		if (t == RPAREN)
+		{
+			match(RPAREN);
+		}
+		else
+		{
+			reportError("')'");
+		}
+
+		t = nextToken();
+
+		//Check for semicolon
+		if (t == SEMICOLON)
+		{
+			match(SEMICOLON);
+		}
+		else
+		{
+			reportError("';'");
+		}
+
+		//Means we have reached end of line, add 1 to line count
+		lineNum = curLineNum;
+		lineNum++;
+
+	}
+	break;
+
+	//5. <statement> -> WRITE (<exprlist>); //done
+	case WRITE:
+	{
+		match(WRITE);
+		int t = nextToken();
+
+		if (t == LPAREN)
+		{
+			match(LPAREN);
+		}
+		else
+		{
+			reportError("'('");
+		}
+
+		//call expression list
+		exprlist();
+
+		t = nextToken();
+
+		if (t == RPAREN)
+		{
+			match(RPAREN);
+		}
+		else
+		{
+			reportError("')'");
+		}
+
+		t = nextToken();
+
+		//Check for semicolon
+		if (t == SEMICOLON)
+		{
+			match(SEMICOLON);
+		}
+		else
+		{
+			reportError("';'");
+		}
+
+		//Means we have reached end of line, add 1 to line count
+		lineNum = curLineNum;
+		lineNum++;
+
+	}
+	break;
+
+	//6. <statement> -> IF (<condition>) THEN  <statementlist> <iftail> //done
+	case IF:
+	{
+		match(IF);
+		int t = nextToken();
+
+		if (t == LPAREN)
+		{
+			match(LPAREN);
+		}
+		else
+		{
+			reportError("'('");
+		}
+
+		condition();
+
+		t = nextToken();
+
+		if (t == THEN)
+		{
+			match(THEN);
+		}
+		else
+		{
+			reportError("\"THEN\"");
+		}
+
+		statementList();
+		iftail();
+	}
+	break;
+
+	//9. <statement> -> WHILE (<condition>) {<statementlist>} ENDWHILE
+	case WHILE:
+	{
+		match(WHILE);
+		int t = nextToken();
+
+		if (t == LPAREN)
+		{
+			match(LPAREN);
+		}
+		else
+		{
+			reportError("'('");
+		}
+
+		condition();
+
+		t = nextToken();
+
+		if (t == RPAREN)
+		{
+			match(RPAREN);
+		}
+		else
+		{
+			reportError("')'");
+		}
+
+		statementList();
+
+		t = nextToken();
+
+		if (t == ENDWHILE)
+		{
+			match(ENDWHILE);
+		}
+		else
+		{
+			reportError("\"ENDWHILE\"");
+		}
+
+		//Means we have reached end of line, add 1 to line count
+		lineNum = curLineNum;
+		lineNum++;
+
+	}
+	break;
+
+	default:
+	{
+		// Can allow the parser to recover from a potentially fatal error if a semicolon can be found
+		while (errStateFlag == 1 && nextToken() != SCANEOF)
+		{
+			if (match(SEMICOLON))
+				errStateFlag = 0;
+		}
+
+		//Checks if next token begins a statement. If not, statementlist loop is terminated
+		checkForStatement();
+	}
+	break;
 
 	}
 
 	outputStatement();
-	
-return 0;
+
+	return 0;
 
 }
 
@@ -523,15 +534,23 @@ int iftail() //done
 //10. <id list>  -> ID {, <id list>}
 int idlist()
 {
+	int t = nextToken();
+
 	//Check for ID
-	if(match(ID) == 0) //incorrect token
+	if (t == ID) //incorrect token
+	{
+		match(ID);
+	}
+	else
 	{
 		reportError("identifier");
 	}
 
+	t = nextToken();
+
 	//If there's a comma, expect more identifiers
-	while (nextToken() == COMMA)
-	{		
+	if (t == COMMA)
+	{
 		match(COMMA);
 		idlist();
 	}
@@ -589,7 +608,6 @@ int factor()
 {
 	//get next token
 	tempToken = nextToken();
-	printf("\nTempToken %d", tempToken);
 
 	switch(tempToken) {
 
@@ -598,7 +616,7 @@ int factor()
 		{
 			match(LPAREN);
 			expression();
-			match (RPAREN);
+			match(RPAREN);
 		}
 		break;
 
@@ -612,7 +630,7 @@ int factor()
 
 		//16. <factor> -> ID
 		case ID:
-		{				
+		{		
 			match(ID);
 		}
 		break;
@@ -626,9 +644,9 @@ int factor()
 
 		//else error
 		default:
-		{			
+		{
 			reportError("'(', '-', identifier, or number");
-			match(tempToken);
+			errStateFlag = 1;
 		}
 	}
 
@@ -660,6 +678,7 @@ int addop() //done
 		default:
 		{
 			reportError("'-' or '+'");
+			errStateFlag = 1;
 		}
 		break;
 
@@ -693,6 +712,7 @@ int multop() //done
 		default:
 		{
 			reportError("'*' or '/'");
+			errStateFlag = 1;
 		}
 		break;
 
@@ -838,6 +858,7 @@ int lprimary() //done
 		default:
 		{
 			reportError("integer, identifier, condition, falseop, trueop, or nullop");
+			errStateFlag = 1;
 		}
 		break;
 	}	
@@ -892,6 +913,7 @@ int relop() //done
 		default:
 		{
 			reportError("relational operator");
+			errStateFlag = 1;
 		}
 		break;
 	}
@@ -905,16 +927,12 @@ int relop() //done
 // Returns 0 if it is not equal
 int match(int token) //DESTRUCTIVE
 {
-	int returnVal;
+	int returnVal = 0;
 	if (token == scanner(1))
 	{
 		returnVal = 1;
+		updateOutputFile(token);
 	}
-	else
-	{
-		returnVal = 0;
-	}
-	updateOutputFile(token);
 	return returnVal;
 }
 
@@ -1586,8 +1604,7 @@ char * getTokenType(int token, char * str)
 			break;
 		
 		case ERROR:
-			strcpy(str, "ERROR");
-			break;					
+			strcpy(str, "ERROR");					
 		
 	}
 			
@@ -1600,19 +1617,22 @@ void reportError(char* expectedToken)
 	//Display error
 	//printf("\nError: Line %d, expected %s", lineNum, expectedToken);
 
-	char temp[10];
-	itoa(curLineNum, temp, 10);
+	if (errStateFlag == 0)
+	{
+		char temp[10];
+		itoa(curLineNum, temp, 10);
 
-	syntaxErrNum++;
-	strncat(synErrBuffer, "Syntax error on line ", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
-	strncat(synErrBuffer, temp, ERROR_BUFFER_SIZE - strlen(synErrBuffer));
-	strncat(synErrBuffer, " (Expected ", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
-	strncat(synErrBuffer, expectedToken, ERROR_BUFFER_SIZE - strlen(synErrBuffer));
-	strncat(synErrBuffer, "): Found \"", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
-	strncat(synErrBuffer, tokenBuffer, ERROR_BUFFER_SIZE - strlen(synErrBuffer));
-	strncat(synErrBuffer, "\"\n", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
-	if (strlen(synErrBuffer) >= ERROR_BUFFER_SIZE)
-		strcpy(synErrBuffer, "Many errors tokens were found!"); // For cases in which the error buffer is too small
+		syntaxErrNum++;
+		strncat(synErrBuffer, "Syntax error on line ", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+		strncat(synErrBuffer, temp, ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+		strncat(synErrBuffer, " (Expected ", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+		strncat(synErrBuffer, expectedToken, ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+		strncat(synErrBuffer, "): Found \"", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+		strncat(synErrBuffer, tokenBuffer, ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+		strncat(synErrBuffer, "\"\n", ERROR_BUFFER_SIZE - strlen(synErrBuffer));
+		if (strlen(synErrBuffer) >= ERROR_BUFFER_SIZE)
+			strcpy(synErrBuffer, "Many errors tokens were found!"); // For cases in which the error buffer is too small
+	}
 }
 
 //Check for statements
@@ -1620,10 +1640,27 @@ void checkForStatement()
 {
 	int myToken;
 	myToken = nextToken();
-
 	//if the next token is not a statement
-	if (!(myToken == ID) || !(myToken == READ) || !(myToken == WRITE) || !(myToken ==IF) || !(myToken == WHILE))
+	if (!(myToken == ID || myToken == READ || myToken == WRITE || myToken == IF || myToken == WHILE))
 	{
-		noMore++; //raise flag meaning no more statements
+		// If the next token is not the beginning of a statement or the end of a statement then it must be a syntax error
+		if (!(myToken == ENDWHILE || myToken == END || myToken == THEN || myToken == ENDIF || myToken == SCANEOF))
+		{
+			reportError("statement");
+			errStateFlag = 1;
+			do
+			{
+				match(-1);
+				myToken = nextToken();
+				if (myToken == ID || myToken == READ || myToken == WRITE || myToken == IF || myToken == WHILE)
+				{
+					errStateFlag = 0;
+				}
+			} while (errStateFlag == 1 && myToken != SCANEOF);
+		}
+		else
+		{
+			noMore++; //raise flag meaning no more statements
+		}
 	}
 }

@@ -1,5 +1,5 @@
 
-#define ERROR_BUFFER_SIZE 100
+#define ERROR_BUFFER_SIZE 300
 
 enum token {
   /*0.*/ BEGIN, 
@@ -18,21 +18,21 @@ enum token {
   /*13.*/ TRUEOP, 
   /*14.*/ NULLOP, 
   /*15.*/ LPAREN, 
-  /*17.*/ RPAREN, 
-  /*18.*/ SEMICOLON, 
-  /*19.*/ COMMA, 
-  /*20.*/ ASSIGNOP, 
-  /*21.*/ PLUSOP, 
-  /*22.*/ MINUSOP, 
-  /*23.*/ MULTOP, 
-  /*24.*/ DIVOP, 
-  /*25.*/ NOTOP, 
-  /*26.*/ LESSOP, 
-  /*27.*/ LESSEQUALOP, 
-  /*28.*/ GREATEROP, 
-  /*29.*/ GREATEREQUALOP, 
-  /*30.*/ EQUALOP, 
-  /*31.*/ NOTEQUALOP, 
-  /*32.*/ SCANEOF, 
-  /*33.*/ ERROR
+  /*16.*/ RPAREN, 
+  /*17.*/ SEMICOLON, 
+  /*18.*/ COMMA, 
+  /*19.*/ ASSIGNOP, 
+  /*20.*/ PLUSOP, 
+  /*21.*/ MINUSOP, 
+  /*22.*/ MULTOP, 
+  /*23.*/ DIVOP, 
+  /*24.*/ NOTOP, 
+  /*25.*/ LESSOP, 
+  /*26.*/ LESSEQUALOP, 
+  /*27.*/ GREATEROP, 
+  /*28.*/ GREATEREQUALOP, 
+  /*29.*/ EQUALOP, 
+  /*30.*/ NOTEQUALOP, 
+  /*31.*/ SCANEOF, 
+  /*32.*/ ERROR
 };
