@@ -416,6 +416,17 @@ int statement()
 
 		t = nextToken();
 
+		if (t == RPAREN)
+		{
+			match(RPAREN);
+		}
+		else
+		{
+			reportError("')'");
+		}
+
+		t = nextToken();
+
 		if (t == THEN)
 		{
 			match(THEN);
@@ -486,7 +497,7 @@ int statement()
 			if (match(SEMICOLON))
 				errStateFlag = 0;
 		}
-
+		
 		//Checks if next token begins a statement. If not, statementlist loop is terminated
 		checkForStatement();
 	}
