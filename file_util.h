@@ -76,6 +76,4 @@ int getInputFile(char* filePath, const char** restrictedExtensions, const int re
 // Does not allow the user to use an output filename that matches any string in "reservedNames"
 int getOutputFile(char* filePath, const char* defaultDir, const char** restrictedExtensions, const int resExtCount);
 
-#include "file_util.c"
-
 #endif

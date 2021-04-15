@@ -346,17 +346,16 @@ int getOutputFile(char* filePath, const char* defaultDir, const char** restricte
         // Checks if there was anything entered for the output filename
         if (filePath[0] == '\0')
         {
-            strcpy(filePath, "output.out");
-            getFileDirectory(tempBuff, defaultDir);
-            changeFileDirectory(filePath, tempBuff);
-            printf("\nNo output file name was entered. The name was defaulted to %s", filePath);
+            strcpy(filePath, defaultDir);
+            changeFileExtension(filePath, ".out");
+            printf("\nNo output file name was entered. The name was defaulted to %s\n", filePath);
         }
         // Checks if there was anything entered and adds an extension if there was a file name entered
         if (!hasFileExtension(filePath))
         {
             printf("\nOutput file is missing an extension.\n");
             changeFileExtension(filePath, ".out");
-            printf("The output file is now %s\n", filePath);
+            printf("The output file has been defaulted to %s\n", filePath);
         }
 
         getFileExtension(tempBuff, filePath);
