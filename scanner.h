@@ -22,9 +22,6 @@ char* getTokenBuffer();
 //Returns the current line number that the scanner is scanning of the input file
 int getCurLineNum();
 
-//Returns a pointer to the token string that was last read from the input file
-char* getActualToken();
-
 //Given enum value of token, and a string, returns string value of token
 char* getTokenType(int token, char* str);
 

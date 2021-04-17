@@ -43,21 +43,15 @@ int getTotalLexErrors()
 	return LexicalErrNum;
 }
 
-// Returns a pointer to "TokenBuffer"
-// The size of "TokenBuffer" is TOKEN_BUFFER_SIZE characters
-char* getTokenBuffer()
-{
-	return &TokenBuffer;
-}
-
 //Returns the current line number that the scanner is scanning of the input file
 int getCurLineNum()
 {
 	return CurLineNum;
 }
 
-//Returns a pointer to the token string that was last read from the input file
-char* getActualToken()
+// Returns "TokenBuffer"
+// The size of "TokenBuffer" is TOKEN_BUFFER_SIZE characters
+char* getTokenBuffer()
 {
 	return TokenBuffer;
 }

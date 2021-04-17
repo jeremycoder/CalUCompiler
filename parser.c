@@ -47,7 +47,7 @@ void reportError(char* expectedToken)
 		addToErrorBuffer(" (Expected ");
 		addToErrorBuffer(expectedToken);
 		addToErrorBuffer("): Found \"");
-		addToErrorBuffer(getActualToken());
+		addToErrorBuffer(getTokenBuffer());
 		addToErrorBuffer("\"\n");
 	}
 }
@@ -126,11 +126,27 @@ void systemGoal()
 		printf("\n\nA FATAL ERROR OCCURRED\n\n");
 		FatalError = 1;
 	}
+}
 
+// 41. <ident> -> ID #processID 
+struct ExprRecord ident()
+{
+	struct ExprRecord tempExpr;
+	// Check for ID
+	if (nextToken() == ID)
+	{
+		match(ID);
+		tempExpr = processID(getTokenBuffer());
+	}
+	else
+	{
+		reportError("identifier");
+	}
+	return tempExpr;
 }
 
 // 1. <program> -> #genStart BEGIN <statement list> END
-int program()
+void program()
 {
 	genStart();
 
@@ -162,22 +178,16 @@ int program()
 		//Display error
 		reportError("\"END\"");
 	}
-
-	return 0;
-
 }
 
 // 2. <statement_list> -> <statement> {<statement list>}
-int statementList()
+void statementList()
 {
 	do
 	{
 		statement();
 
 	} while (NoMoreStatements == -1);
-
-	return 0;
-
 }
 
 // 3. <statement> -> ID ASSIGNOP <expression> #processAssign;
@@ -185,7 +195,7 @@ int statementList()
 // 5. <statement> -> WRITE LPAREN <exprlist> RPAREN;
 // 6. <statement> -> IF LPAREN <condition> RPAREN THEN <statementlist> <iftail>
 // 9. <statement> -> WHILE LPAREN <condition> RPAREN {<statementlist>} ENDWHILE
-int statement()
+void statement()
 {
 	NoMoreStatements = -1; //We have statements to process	
 
@@ -196,11 +206,9 @@ int statement()
 	{
 	// 3. <statement> -> ID ASSIGNOP <expression> #processAssign;
 	case ID:
-		match(ID);
-
-		struct ExprRecord leftExpr;
-		getTokenBuffer();
-		leftExpr.type = IDEXPR;
+	{
+		struct ExprRecord leftExpr, rightExpr;
+		leftExpr = ident();
 
 		t = nextToken();
 
@@ -215,9 +223,9 @@ int statement()
 		}
 
 		//call expression production function
-		expression();
+		expression(&rightExpr);
 
-		
+		processAssign(&leftExpr, &rightExpr);
 
 		t = nextToken();
 
@@ -232,9 +240,11 @@ int statement()
 		}
 
 		break;
+	}
 
 	// 4. <statement> -> WRITE LPAREN <idlist> RPAREN;
 	case READ:
+	{
 		match(READ);
 		t = nextToken();
 
@@ -274,9 +284,11 @@ int statement()
 		}
 
 		break;
+	}
 
 	// 5. <statement> -> WRITE LPAREN <exprlist> RPAREN;
 	case WRITE:
+	{
 		match(WRITE);
 		t = nextToken();
 
@@ -316,9 +328,11 @@ int statement()
 		}
 
 		break;
+	}
 
 	// 6. <statement> -> IF LPAREN <condition> RPAREN THEN <statementlist> <iftail>
 	case IF:
+	{
 		match(IF);
 		t = nextToken();
 
@@ -358,9 +372,11 @@ int statement()
 		statementList();
 		iftail();
 		break;
+	}
 
 	// 9. <statement> -> WHILE LPAREN <condition> RPAREN {<statementlist>} ENDWHILE
 	case WHILE:
+	{
 		match(WHILE);
 		t = nextToken();
 
@@ -400,8 +416,10 @@ int statement()
 		}
 
 		break;
+	}
 
 	default:
+	{
 		t = nextToken();
 		// Can allow the parser to recover from a potentially fatal error if a semicolon can be found
 		while (ErrStateFlag == 1 && t != SCANEOF && t != END)
@@ -415,16 +433,14 @@ int statement()
 		//Checks if next token begins a statement. If not, statementlist loop is terminated
 		checkForStatement();
 		break;
-
 	}
 
-	return 0;
-
+	}
 }
 
 // 7. <IFTail> -> ELSE <statementlist> ENDIF
 // 8. <IFTail> -> ENDIF
-int iftail()
+void iftail()
 {
 	int t = nextToken();
 
@@ -455,87 +471,90 @@ int iftail()
 		ErrStateFlag = 1;
 		break;
 	}
-
-	return 0;
 }
 
-// 10. <id list> -> ID #readID {, <id list>}
-int idlist()
+// 10. <id list> -> <ident> #readID {, <id list>}
+void idlist()
 {
+	struct ExprRecord id;
+
 	int t = nextToken();
 
-	//Check for ID
-	if (t == ID) //incorrect token
-	{
-		match(ID);
-	}
-	else
-	{
-		reportError("identifier");
-	}
+	id = ident();
+	readID(&id);
 
 	t = nextToken();
 
-	//If there's a comma, expect more identifiers
+	// If there's a comma, expect more identifiers
 	if (t == COMMA)
 	{
 		match(COMMA);
 		idlist();
 	}
-
-	return 0;
 }
 
 // 11. <expr list> -> <expression> #writeExpr {, <expr list>}
-int exprlist()
+void exprlist()
 {
-	expression();
+	struct ExprRecord expr;
+
+	expression(&expr);
+
+	writeExpr(&expr);
 
 	if (nextToken() == COMMA)
 	{
 		match(COMMA);
 		exprlist();
 	}
-
-	return 0;
 }
 
 
-//12. <expression> -> <term> {<add op> <term> #genInfix}
-int expression()
+// 12. <expression> -> <term> {<add op> <term> #genInfix}
+void expression(struct ExprRecord* result)
 {
-	term();
+	struct ExprRecord lOperand, rOperand;
+	struct OpRecord operator;
+
+	term(&lOperand);
+
 	int t = nextToken();
 
 	if (t == PLUSOP || t == MINUSOP)
 	{
-		match(t);
-		term();
+		addop(&operator);
+		term(&rOperand);
+		lOperand = genInfix(&lOperand, &operator, &rOperand);
 	}
 
-	return 0;
+	*result = lOperand;
 }
 
 //13. <term> -> <factor> {<mult op> <factor> #genInfix}
-int term()
+void term(struct ExprRecord* result)
 {
-	factor();
+	struct ExprRecord lOperand, rOperand;
+	struct OpRecord operator;
+
+	factor(&lOperand);
+
 	int t = nextToken();
 
 	if (t == MULTOP || t == DIVOP)
 	{
-		match(t);
-		factor();
+		multop(&operator);
+		factor(&rOperand);
+		lOperand = genInfix(&lOperand, &operator, &rOperand);
 	}
 
-	return 0;
+	*result = lOperand;
 }
 
 // 14. <factor> -> LPAREN <expression> RPAREN
 // 15. <factor> -> MINUSOP <factor>
-// 16. <factor> -> ID
+// 16. <factor> -> <ident>
 // 17. <factor> -> INTLITERAL #processLiteral
-int factor()
+void factor(struct ExprRecord* result)
 {
 	//get next token
 	int t = nextToken();
@@ -544,216 +563,243 @@ int factor()
 	{
 	// 14. <factor> -> LPAREN <expression> RPAREN
 	case LPAREN:
+	{
+		struct ExprRecord tempExpr;
 		match(LPAREN);
-		expression();
+		expression(&tempExpr);
 		match(RPAREN);
+		*result = tempExpr;
 		break;
+	}
 
 	// 15. <factor> -> MINUSOP <factor>
 	case MINUSOP:
+	{
+		struct ExprRecord tempExpr;
 		match(MINUSOP);
-		factor();
-		break;
+		factor(&tempExpr);
 
-	// 16. <factor> -> ID
+		(*result).type = tempExpr.type;
+
+		// operand = -tempExpr.expression
+		(*result).expression[0] = '-';
+		strcat((*result).expression, tempExpr.expression);
+		break;
+	}
+
+	// 16. <factor> -> <ident>
 	case ID:
-		match(ID);
+	{
+		*result = ident();
 		break;
+	}
 
-	// 17. <factor> -> INTLITERAL
+	// 17. <factor> -> INTLITERAL #processLiteral
 	case INTLITERAL:
+	{
 		match(INTLITERAL);
+		*result = processLiteral(getTokenBuffer());
 		break;
+	}
 
 	// else error
 	default:
+	{
 		reportError("'(', '-', identifier, or number");
 		ErrStateFlag = 1;
 	}
-
-	return 0;
+	}
 }
 
 // 18. <add op> -> PLUSOP #processOp
 // 19. <add op> -> MINUSOP #processOp
-int addop() //done
+void addop(struct OpRecord* result)
 {
 	//get next token
 	int t = nextToken();
 
-	switch (t)
+	if (t == PLUSOP || t == MINUSOP)
 	{
-	// 18. <add op> -> PLUSOP #processOp
-	case PLUSOP:
-		match(PLUSOP);
-		break;
-
-	// 19. <add op> -> MINUSOP #processOp
-	case MINUSOP:
-		match(MINUSOP);
-		break;
-
-	default:
+		match(t);
+		*result = processOp(getTokenBuffer());
+	}
+	else
+	{
 		reportError("'-' or '+'");
 		ErrStateFlag = 1;
-		break;
-
 	}
-
-	return 0;
 }
 
 // 20. <mult op> -> MULTOP #processOp
 // 21. <add op> -> DIVOP #processOp
-int multop() //done
+void multop(struct OpRecord* result)
 {
 	//get next token
 	int t = nextToken();
 
-	switch (t)
+	if (t == MULTOP || t == DIVOP)
 	{
-	// 20. <mult op> -> MULTOP #processOp
-	case MULTOP:
-		match(MULTOP);
-		break;
-
-	// 21. <add op> -> DIVOP #processOp
-	case DIVOP:
-		match(DIVOP);
-		break;
-
-	default:
+		match(t);
+		*result = processOp(getTokenBuffer());
+	}
+	else
+	{
 		reportError("'*' or '/'");
 		ErrStateFlag = 1;
-		break;
 	}
-	
-
-	return 0;
 }
 
 // 22. <condition> -> <addition> {<rel op> <addition> #genInfix}
-int condition()
+struct ExprRecord condition()
 {
-	addition();
+	struct ExprRecord lOperand, rOperand;
+	struct OpRecord operator;
+
+	addition(&lOperand);
+
 	int t = nextToken();
 
 	if (
 		(t == LESSOP) || (t == LESSEQUALOP) || (t == GREATEROP) ||
 		(t == GREATEREQUALOP) || (t == EQUALOP) || (t == NOTEQUALOP)
-		)
+	   )
 	{
-		match(t);
-		addition();
+		relop(&operator);
+		addition(&rOperand);
+		lOperand = genInfix(&lOperand, &operator, &rOperand);
 	}
 
-	return 0;
+	return lOperand;
 }
 
-// 23. <addition> -> <multiplication> {<add op> <multiplication>}
-int addition()
+// 23. <addition> -> <multiplication> {<add op> <multiplication> #genInfix}
+void addition(struct ExprRecord* result)
 {
-	multiplication();
+	struct ExprRecord lOperand, rOperand;
+	struct OpRecord operator;
+
+	multiplication(&lOperand);
+
 	int t = nextToken();
 
 	if ((t == PLUSOP) || (t == MINUSOP))
 	{
-		match(t);
-		multiplication();
+		addop(&operator);
+		multiplication(&rOperand);
+		lOperand = genInfix(&lOperand, &operator, &rOperand);
 	}
 
-	return 0;
+	*result = lOperand;
 }
 
-
-// 24. <multiplication> -> <unary> {<mult op> <unary>}
-int multiplication()
+// 24. <multiplication> -> <unary> {<mult op> <unary> #genInfix}
+void multiplication(struct ExprRecord* result)
 {
-	unary();
+	struct ExprRecord lOperand, rOperand;
+	struct OpRecord operator;
+
+	unary(&lOperand);
+
 	int t = nextToken();
 
 	if ((t == MULTOP) || (t == DIVOP))
 	{
-		match(t);
-		unary();
+		multop(&operator);
+		unary(&rOperand);
+		lOperand = genInfix(&lOperand, &operator, &rOperand);
 	}
 
-	return 0;
+	*result = lOperand;
 }
 
 // 25. <unary> -> NOTOP <unary>
 // 26. <unary> -> MINUSOP <unary>
 // 27. <unary> -> <lprimary>
-int unary() //done
+void unary(struct ExprRecord* result)
 {
-	//get next token
 	int t = nextToken();
 
 	switch (t)
 	{
 	// 25. <unary> -> NOTOP <unary>
 	case NOTOP:
+	{
+		struct ExprRecord tempExpr;
 		match(NOTOP);
-		unary();
+		unary(&tempExpr);
+		
+		(*result).type = tempExpr.type;
+		(*result).expression[0] = '-';
+		strcat((*result).expression, tempExpr.expression);
 		break;
+	}
 
 	// 26. <unary> -> MINUSOP <unary>
 	case MINUSOP:
+	{
+		struct ExprRecord tempExpr;
 		match(MINUSOP);
-		unary();
+		unary(&tempExpr);
+
+		(*result).type = tempExpr.type;
+		(*result).expression[0] = '!';
+		strcat((*result).expression, tempExpr.expression);
 		break;
+	}
 
 	// 27. <unary> -> <lprimary>
 	default:
-		lprimary();
+		lprimary(result);
 	}
-
-	return 0;
 }
 
-// 28. <lprimary> -> INTLITERAL
-// 29. <lprimary> -> ID 
+// 28. <lprimary> -> INTLITERAL #processLiteral
+// 29. <lprimary> -> <ident>
 // 30. <lprimary> -> LPAREN <condition> RPAREN
-// 31. <lprimary> -> FALSEOP
-// 32. <lprimary> -> TRUEOP
-// 33. <lprimary> -> NULLOP
-int lprimary()
+// 31. <lprimary> -> FALSEOP #processLiteral
+// 32. <lprimary> -> TRUEOP #processLiteral
+// 33. <lprimary> -> NULLOP #processLiteral
+void lprimary(struct ExprRecord* result)
 {
 	//Get next token
 	int t = nextToken();
 
 	switch (t)
 	{
-	// 28. <lprimary> -> INTLITERAL
+	// 28. <lprimary> -> INTLITERAL #processLiteral
 	case INTLITERAL:
 		match(INTLITERAL);
+		*result = processLiteral(getTokenBuffer());
 		break;
 
-	// 29. <lprimary> -> ID 
+	// 29. <lprimary> -> <ident>
 	case ID:
-		match(ID);
+		*result = ident();
 		break;
 
 	// 30. <lprimary> -> LPAREN <condition> RPAREN
 	case LPAREN:
 		match(LPAREN);
-		condition();
+		*result = condition();
 		match(RPAREN);
 		break;
 
-	// 31. <lprimary> -> FALSEOP
+	// 31. <lprimary> -> FALSEOP #processLiteral
 	case FALSEOP:
 		match(FALSEOP);
+		*result = processLiteral(getTokenBuffer()); // Was processOp in the lesson but is that correct?
 		break;
 
-	// 32. <lprimary> -> TRUEOP
+	// 32. <lprimary> -> TRUEOP #processLiteral
 	case TRUEOP:
 		match(TRUEOP);
+		*result = processLiteral(getTokenBuffer()); // Was processOp in the lesson but is that correct?
 		break;
 
-	// 33. <lprimary> -> NULLOP
+	// 33. <lprimary> -> NULLOP #processLiteral
 	case NULLOP:
 		match(NULLOP);
+		*result = processLiteral(getTokenBuffer()); // Was processOp in the lesson but is that correct?
 		break;
 
 	default:
@@ -761,53 +807,27 @@ int lprimary()
 		ErrStateFlag = 1;
 		break;
 	}
-
-	return 0;
 }
 
-// 34. <relop> -> LESSOP
-// 35. <relop> -> LESSEQUALOP
-// 36. <relop> -> GREATEROP
-// 37. <relop> -> GREATEREQUALOP
-// 38. <relop> -> EQUALOP
-// 39. <relop> -> NOTEQUALOP
-int relop()
+// 34. <relop> -> LESSOP #processOp
+// 35. <relop> -> LESSEQUALOP #processOp
+// 36. <relop> -> GREATEROP #processOp
+// 37. <relop> -> GREATEREQUALOP #processOp
+// 38. <relop> -> EQUALOP #processOp
+// 39. <relop> -> NOTEQUALOP #processOp
+void relop(struct OpRecord* result)
 {
 	//Get next token
 	int t = nextToken();
 
-	switch (t)
+	if (t == LESSOP || t == LESSEQUALOP || t == GREATEROP || t == GREATEREQUALOP || t == EQUALOP || t == NOTEQUALOP)
 	{
-	// 34. <relop> -> LESSOP
-	case LESSOP:
-		match(LESSOP);
-		break;
-	// 35. <relop> -> LESSEQUALOP
-	case LESSEQUALOP:
-		match(LESSEQUALOP);
-		break;
-	// 36. <relop> -> GREATEROP
-	case GREATEROP:
-		match(GREATEROP);
-		break;
-	// 37. <relop> -> GREATEREQUALOP
-	case GREATEREQUALOP:
-		match(GREATEREQUALOP);
-		break;
-	// 38. <relop> -> EQUALOP
-	case EQUALOP:
-		match(EQUALOP);
-		break;
-	// 39. <relop> -> NOTEQUALOP
-	case NOTEQUALOP:
-		match(NOTEQUALOP);
-		break;
-
-	default:
+		match(t);
+		*result = processOp(getTokenBuffer());
+	}
+	else
+	{
 		reportError("relational operator");
 		ErrStateFlag = 1;
-		break;
 	}
-
-	return 0;
 }
