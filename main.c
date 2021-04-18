@@ -31,8 +31,6 @@ int main(int argc, char** argv)
 	char listFilePath[MAX_PATH_SIZE] = { '\0' };
 	char tempFilePath[MAX_PATH_SIZE] = { '\0' };
 
-	//int invalid; unused variable
-
 	// Get command line parameters if they exist
 	getCmdParameters(argc, argv, inputFilePath, outputFilePath);
 
@@ -100,51 +98,13 @@ int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* t
 	return returnVal;
 }
 
-// Prints the total number of lexical errors at the end of the listing file
 // Closes all of the files
 void end(char* inputFilePath, char* outputFilePath, char* listFilePath, char* tempFilePath)
 {
-	char tempBuffer[50];
-	int lexErrors = getTotalLexErrors();
-	int synErrors = getTotalSynErrors();
-
-	sprintf(tempBuffer, "\n\nThere are %d lexical errors.", getTotalLexErrors()); // Resuses the token buffer temporarily because why not
-	fputs(tempBuffer, ListFilePtr); // Puts the total number of errors at the end of the list file
-
-	sprintf(tempBuffer, "\nThere are %d syntax errors.", getTotalSynErrors());
-	fputs(tempBuffer, ListFilePtr);
-
-	if (getParserErrorState())
-		sprintf(tempBuffer, "\nThe program did not finish compilation.");
-	else
-	{
-		if (synErrors != 0 || lexErrors != 0)
-			sprintf(tempBuffer, "\nThe program compiled with a total of %d errors.", (lexErrors + synErrors));
-	}
-	fputs(tempBuffer, ListFilePtr);
-
-	rewind(TempFilePtr);
-	copyFileContents(TempFilePtr, OutputFilePtr); // In this case copies "The Temp" into the end of the output file (current file position)
-
 	fileClose(InputFilePtr, inputFilePath);
 	fileClose(OutputFilePtr, outputFilePath);
 	fileClose(ListFilePtr, listFilePath);
 	fileClose(TempFilePtr, tempFilePath);
-
-	//if (fileExists("temp.out"))
-		//remove("temp.out");
-}
-
-// Returns 1 if the character is an alpha ASCII character, else returns 0
-int charIsAlpha(char c)
-{
-	return (c > 64 && c < 91) || (c > 96 && c < 123);
-}
-
-// Returns 1 if the character is a numberic ASCII character, else returns 0
-int charIsInt(char c)
-{
-	return c > 47 && c < 58;
 }
 
 // Gets parameters from the command prompt (if they exist) and stores them in "inputFilePath" and "outputFilePath" respectively

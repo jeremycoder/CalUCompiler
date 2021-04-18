@@ -1,4 +1,5 @@
 #include "generator.h"
+#include "file_util.h"
 
 FILE* OutputFile;
 FILE* TempFile;
@@ -43,7 +44,9 @@ void checkID(char* var)
 // #start
 void genStart()
 {
+	// Write current date and time to output file here
 
+	fputs("#include <stdio.h>\n\nint main()\n{\n", OutputFile);
 }
 
 // #assign
@@ -91,5 +94,10 @@ struct OpRecord processOp(char* operator)
 // #finish
 void genFinish()
 {
+	fputs("\n}", TempFile);
+	rewind(TempFile);
+	copyFileContents(TempFile, OutputFile);
 
+	//if (fileExists("temp.out"))
+		//remove("temp.out");
 }

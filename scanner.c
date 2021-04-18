@@ -1,5 +1,4 @@
 #include "scanner.h"
-#include <string.h>
 
 #define ERROR_BUFFER_SIZE 500
 #define TOKEN_BUFFER_SIZE 50
@@ -54,6 +53,18 @@ int getCurLineNum()
 char* getTokenBuffer()
 {
 	return TokenBuffer;
+}
+
+// Returns 1 if the character is an alpha ASCII character, else returns 0
+int charIsAlpha(char c)
+{
+	return (c > 64 && c < 91) || (c > 96 && c < 123);
+}
+
+// Returns 1 if the character is a numberic ASCII character, else returns 0
+int charIsInt(char c)
+{
+	return c > 47 && c < 58;
 }
 
 // Checks if the string stored in buffer matches any of the hardcoded reserved names

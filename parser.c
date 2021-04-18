@@ -13,11 +13,13 @@ int NoMoreStatements = -1;
 char FatalError = 0;
 
 FILE* OutputFilePtr;
+FILE* ListFilePtr;
 
 //
 void compile(FILE* in, FILE* out, FILE* list, FILE* temp)
 {
 	OutputFilePtr = out;
+	ListFilePtr = list;
 	scannerInit(in, out, list);
 	generatorInit(out, temp);
 	systemGoal();
@@ -116,7 +118,7 @@ int nextToken()
 }
 
 //Parser starts here
-// 40. <system goal> -> <program> SCANEOF;
+// 40. <system goal> -> <program> SCANEOF #genFinish
 void systemGoal()
 {
 	program();
@@ -126,6 +128,25 @@ void systemGoal()
 		printf("\n\nA FATAL ERROR OCCURRED\n\n");
 		FatalError = 1;
 	}
+
+	genFinish();
+
+	char tempBuffer[50];
+
+	sprintf(tempBuffer, "\n\nThere are %d lexical errors.", getTotalLexErrors()); // Resuses the token buffer temporarily because why not
+	fputs(tempBuffer, ListFilePtr); // Puts the total number of errors at the end of the list file
+
+	sprintf(tempBuffer, "\nThere are %d syntax errors.", getTotalSynErrors());
+	fputs(tempBuffer, ListFilePtr);
+
+	if (getParserErrorState())
+		sprintf(tempBuffer, "\nThe program did not finish compilation.");
+	else
+	{
+		if (getTotalLexErrors() != 0 || getTotalSynErrors() != 0)
+			sprintf(tempBuffer, "\nThe program compiled with a total of %d errors.", (getTotalLexErrors() + getTotalSynErrors()));
+	}
+	fputs(tempBuffer, ListFilePtr);
 }
 
 // 41. <ident> -> ID #processID 

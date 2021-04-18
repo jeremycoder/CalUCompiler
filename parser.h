@@ -51,6 +51,10 @@ void statementList();
 // 9. <statement> -> WHILE LPAREN <condition> RPAREN {<statementlist>} ENDWHILE
 void statement();
 
+// 7. <IFTail> -> ELSE <statementlist> ENDIF
+// 8. <IFTail> -> ENDIF
+void iftail();
+
 // 10. <id list> -> <ident> #readID {, <id list>}
 void idlist();
 
