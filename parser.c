@@ -149,7 +149,7 @@ void systemGoal()
 	fputs(tempBuffer, ListFilePtr);
 }
 
-// 41. <ident> -> ID #processID 
+// 41. <ident> -> ID #processID
 struct ExprRecord ident()
 {
 	struct ExprRecord tempExpr;
