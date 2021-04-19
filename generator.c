@@ -22,15 +22,20 @@ void generatorInit(FILE* out, FILE* temp)
 //-----START FOR GROUP MEMBER 1-----
 
 // 
-void generate(char* s1, char* s2, char* s3, char* s4, char* s5)
+void generate(char* s1, char* s2, char* s3, char* s4, char* s5, char* s6)
 {
-	
+	fputs(s1, TempFile);
+	fputs(s2, TempFile);
+	fputs(s3, TempFile);
+	fputs(s4, TempFile);
+	fputs(s5, TempFile);
+	fputs(s6, TempFile);
 }
 
 // #assign
 void processAssign(struct ExprRecord* leftSide, struct ExprRecord* rightSide)
 {
-
+	
 }
 
 // #read_id
@@ -53,8 +58,8 @@ void writeExpr(struct ExprRecord* expr)
 char* getTemp()
 {
 	TempNum++;
-	char* temp[15] = { "Temp\0" };
-	itoa(TempNum, (temp + 4), 10);
+	char temp[SYMBOL_SIZE] = { "Temp\0" };
+	itoa(TempNum, temp + 4, 10);
 	checkID(temp);
 	return temp;
 }
@@ -147,6 +152,7 @@ void enter(char* var)
 // 
 void checkID(char* var)
 {
+	printf("\n%s\n", var);
 	if (lookup(var) == 0)
 	{
 		enter(var);
@@ -171,7 +177,7 @@ void genStart()
 // #gen_infix (THIS IS PROBABLY A BIG ONE)
 struct ExprRecord genInfix(struct ExprRecord* leftSide, struct OpRecord* operator, struct ExprRecord* rightSide)
 {
-
+	
 }
 
 //-----END FOR GROUP MEMBER 3-----
@@ -181,13 +187,13 @@ struct ExprRecord genInfix(struct ExprRecord* leftSide, struct OpRecord* operato
 // #process_literal
 struct ExprRecord processLiteral(char* literal)
 {
-
+	
 }
 
 // #process_op
-struct OpRecord processOp(char* operator)
+struct OpRecord processOp(int operator)
 {
-
+	
 }
 
 // #process_id

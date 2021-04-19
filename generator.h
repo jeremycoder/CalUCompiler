@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include "file_util.h"
+#include "token.h"
 
 #define MAX_EXPRESSION_SIZE 100
 
@@ -29,7 +30,7 @@ struct OpRecord
 void generatorInit(FILE* out, FILE* temp);
 
 // 
-void generate(char* s1, char* s2, char* s3, char* s4, char* s5);
+void generate(char* s1, char* s2, char* s3, char* s4, char* s5, char* s6);
 
 // 
 char* getTemp();
@@ -65,7 +66,7 @@ struct ExprRecord genInfix(struct ExprRecord* leftSide, struct OpRecord* operato
 struct ExprRecord processLiteral(char* literal);
 
 // #process_op
-struct OpRecord processOp(char* operator);
+struct OpRecord processOp(int operator);
 
 // #finish
 void genFinish();

@@ -1,3 +1,6 @@
+#ifndef TOKEN_H
+#define TOKEN_H
+
 enum token {
 	/*0.*/ BEGIN,
 	/*1.*/ END,
@@ -33,3 +36,5 @@ enum token {
 	/*31.*/ SCANEOF,
 	/*32.*/ ERROR
 };
+
+#endif

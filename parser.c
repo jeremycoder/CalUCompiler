@@ -136,17 +136,26 @@ void systemGoal()
 	sprintf(tempBuffer, "\n\nThere are %d lexical errors.", getTotalLexErrors()); // Resuses the token buffer temporarily because why not
 	fputs(tempBuffer, ListFilePtr); // Puts the total number of errors at the end of the list file
 
+	tempBuffer[0] = "\0";
+
 	sprintf(tempBuffer, "\nThere are %d syntax errors.", getTotalSynErrors());
 	fputs(tempBuffer, ListFilePtr);
 
-	if (getParserErrorState())
+	tempBuffer[0] = "\0";
+
+	if (getParserErrorState() == 1)
+	{
 		sprintf(tempBuffer, "\nThe program did not finish compilation.");
+		fputs(tempBuffer, ListFilePtr);
+	}
 	else
 	{
 		if (getTotalLexErrors() != 0 || getTotalSynErrors() != 0)
+		{
 			sprintf(tempBuffer, "\nThe program compiled with a total of %d errors.", (getTotalLexErrors() + getTotalSynErrors()));
+			fputs(tempBuffer, ListFilePtr);
+		}
 	}
-	fputs(tempBuffer, ListFilePtr);
 }
 
 // 41. <ident> -> ID #processID
@@ -642,7 +651,7 @@ void addop(struct OpRecord* result)
 	if (t == PLUSOP || t == MINUSOP)
 	{
 		match(t);
-		*result = processOp(getTokenBuffer());
+		*result = processOp(t);
 	}
 	else
 	{
@@ -661,7 +670,7 @@ void multop(struct OpRecord* result)
 	if (t == MULTOP || t == DIVOP)
 	{
 		match(t);
-		*result = processOp(getTokenBuffer());
+		*result = processOp(t);
 	}
 	else
 	{
