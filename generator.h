@@ -2,6 +2,7 @@
 #define GENERATOR_H
 
 #include <stdio.h>
+#include "file_util.h"
 
 #define MAX_EXPRESSION_SIZE 100
 
