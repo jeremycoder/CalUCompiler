@@ -136,12 +136,12 @@ void systemGoal()
 	sprintf(tempBuffer, "\n\nThere are %d lexical errors.", getTotalLexErrors()); // Resuses the token buffer temporarily because why not
 	fputs(tempBuffer, ListFilePtr); // Puts the total number of errors at the end of the list file
 
-	tempBuffer[0] = "\0";
+	tempBuffer[0] = '\0';
 
 	sprintf(tempBuffer, "\nThere are %d syntax errors.", getTotalSynErrors());
 	fputs(tempBuffer, ListFilePtr);
 
-	tempBuffer[0] = "\0";
+	tempBuffer[0] = '\0';
 
 	if (getParserErrorState() == 1)
 	{
@@ -373,14 +373,16 @@ void statement()
 
 		if (t == LPAREN)
 		{
-			match(LPAREN);
+			match(LPAREN);			
 		}
 		else
 		{
 			reportError("'('");
 		}
-
-		condition();
+				
+		struct ExprRecord exp; //temp expression record
+		exp = condition();
+		processIf(exp);		
 
 		t = nextToken();
 
@@ -405,10 +407,12 @@ void statement()
 		}
 
 		statementList();
+		NoMoreStatements = -1;
 		iftail();
 		break;
 	}
 
+	// 9. <statement> -> WHILE LPAREN <condition> RPAREN {<statementlist>} ENDWHILE
 	// 9. <statement> -> WHILE LPAREN <condition> RPAREN {<statementlist>} ENDWHILE
 	case WHILE:
 	{
@@ -424,7 +428,11 @@ void statement()
 			reportError("'('");
 		}
 
-		condition();
+		struct ExprRecord expr;
+
+		expr = condition();
+
+		processWhile(&expr);
 
 		t = nextToken();
 
@@ -438,6 +446,8 @@ void statement()
 		}
 
 		statementList();
+
+		generate("}\n", "", "", "", "", "");
 
 		t = nextToken();
 
@@ -484,7 +494,12 @@ void iftail()
 	// 7. <IFTail> -> ELSE <statementlist> ENDIF
 	case ELSE:
 		match(ELSE);
+		
+		//generate else statement
+		generate(" } ", " else { ", "", "", "", "");
+		
 		statementList();
+		NoMoreStatements = -1;
 		t = nextToken();
 
 		if (t == ENDIF)
@@ -504,8 +519,10 @@ void iftail()
 	default:
 		reportError("\"ENDIF\" or \"ELSE\"");
 		ErrStateFlag = 1;
-		break;
+		break;		
+		
 	}
+	generate("}\n", "", "", "", "", "");
 }
 
 // 10. <id list> -> <ident> #readID {, <id list>}
@@ -618,7 +635,7 @@ void factor(struct ExprRecord* result)
 
 		// operand = -tempExpr.expression
 		(*result).expression[0] = '-';
-		strcat((*result).expression, tempExpr.expression);
+		strcpy(((*result).expression + 1), tempExpr.expression);
 		break;
 	}
 
@@ -761,11 +778,10 @@ void unary(struct ExprRecord* result)
 	{
 		struct ExprRecord tempExpr;
 		match(NOTOP);
-		unary(&tempExpr);
-		
+		unary(&tempExpr);		
 		(*result).type = tempExpr.type;
-		(*result).expression[0] = '-';
-		strcat((*result).expression, tempExpr.expression);
+		(*result).expression[0] = '!';		
+		strcpy(((*result).expression + 1), tempExpr.expression);
 		break;
 	}
 
@@ -775,10 +791,9 @@ void unary(struct ExprRecord* result)
 		struct ExprRecord tempExpr;
 		match(MINUSOP);
 		unary(&tempExpr);
-
 		(*result).type = tempExpr.type;
-		(*result).expression[0] = '!';
-		strcat((*result).expression, tempExpr.expression);
+		(*result).expression[0] = '-';
+		strcpy(((*result).expression + 1), tempExpr.expression);
 		break;
 	}
 
@@ -823,8 +838,7 @@ void lprimary(struct ExprRecord* result)
 	case FALSEOP:
 		match(FALSEOP);
 		char temp[15];
-		strcpy(temp, "0\0");
-		printf("\n\ntemp: %s", temp);
+		strcpy(temp, "0\0");		
 		*result = processLiteral(temp); 
 		break;
 
@@ -832,7 +846,7 @@ void lprimary(struct ExprRecord* result)
 	case TRUEOP:
 		match(TRUEOP);
 		char temp1[15];
-		strcpy(temp1, "1\0");
+		strcpy(temp1, "1");		
 		*result = processLiteral(temp1); 
 		break;
 

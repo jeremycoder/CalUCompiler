@@ -42,7 +42,7 @@ void processAssign(struct ExprRecord* leftSide, struct ExprRecord* rightSide)
 	strcpy(temp2, (*rightSide).expression);	
 	
 	//Is target leftSide or is source rightSide
-	generate(temp, " = ", temp2, ";", " ", " ");	
+	generate(temp, " = ", temp2, ";", " ", " \n");	
 
 }
 
@@ -81,7 +81,7 @@ char* getTemp()
 	char temp[SYMBOL_SIZE] = { "Temp\0" };
 	itoa(TempNum, temp + 4, 10);
 	checkID(temp);
-	return temp;
+	return symbols[hashTo(temp)];
 }
 
 // Returns the index of a symbol in the symbol table that has the same name as "symbol"...
@@ -173,7 +173,7 @@ void enter(char* var)
 // 
 void checkID(char* var)
 {
-	printf("\n%s\n", var);
+	//printf("\n%s\n", var);
 	if (lookup(var) == 0)
 	{
 		enter(var);
@@ -301,6 +301,20 @@ struct ExprRecord processID(char* var)
 	
 	return tempRec;	
 }
+
+// #processIf
+void processIf(struct ExprRecord* expr)
+{
+	generate("if (", expr->expression, ")", "\n{\n", "", "");
+}
+
+// #processWhile
+void processWhile(struct ExprRecord* expr)
+{
+	generate("while (", expr->expression, ")", "\n{\n", "", "");
+}
+
+
 
 //-----END FOR GROUP MEMBER 4-----
 

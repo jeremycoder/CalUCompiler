@@ -1,6 +1,13 @@
 begin							--a program
 a:= BB - 314 * c;
-w := true;
-x := null;
-g := false;
+f := -6;
+
+if (true) then
+ a := !BB;
+endif
+
+while (false)
+	g := -8;
+endwhile
+
 end
