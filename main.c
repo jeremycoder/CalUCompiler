@@ -19,7 +19,7 @@ FILE* TempFilePtr;
 // Returns 0 if there were problems opening files
 int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* tempFilePath);
 
-void end(char* inputFilePath, char* outputFilePath, char* listFilePath, char* tempFilePath);
+void end();
 
 // Gets parameters from the command prompt (if they exist) and stores them in "inputFilePath" and "outputFilePath" respectively
 void getCmdParameters(int argc, char** argv, char* inputFilePath, char* outputFilePath);
@@ -38,7 +38,7 @@ int main(int argc, char** argv)
 	{
 		compile(InputFilePtr, OutputFilePtr, ListFilePtr, TempFilePtr);
 
-		end(inputFilePath, outputFilePath, listFilePath, tempFilePath);
+		end();
 	}
 
 	return 0;
@@ -51,16 +51,18 @@ int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* t
 {
 	int returnVal;
 
-	char** restrictExtsn = calloc(3, sizeof(char*));
+	char** restrictExtsn = calloc(4, sizeof(char*));
 	restrictExtsn[0] = calloc(1, FILENAME_MAX);
 	restrictExtsn[1] = calloc(1, FILENAME_MAX);
 	restrictExtsn[2] = calloc(1, FILENAME_MAX);
+	restrictExtsn[3] = calloc(1, FILENAME_MAX);
 
 	char temp[FILENAME_MAX];
 
 	strcpy(restrictExtsn[0], ".lis");
 	strcpy(restrictExtsn[1], ".tmp");
-	strcpy(restrictExtsn[2], ".c");
+	strcpy(restrictExtsn[2], ".bak");
+	strcpy(restrictExtsn[3], ".c");
 
 	// Displays our group title
 	printf("\n-----------------------------------\n");
@@ -68,35 +70,47 @@ int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* t
 	printf("-----------------------------------\n");
 	printf("\n");
 
-	returnVal = getInputFile(inputFilePath, (const char**)restrictExtsn, 3);
+	returnVal = getInputFile(inputFilePath, (const char**)restrictExtsn, 4);
 	
-	/*if (returnVal == 0)
-	{
-		//strcpy(restrictExtsn[1], ".in");
-		//returnVal = getOutputFile(outputFilePath, inputFilePath, (const char**)restrictExtsn, 2);
-	}*/
-	
-	// Checks if still valid
 	if (returnVal == 0)
 	{
-		strcpy(outputFilePath, inputFilePath);
-		changeFileExtension(outputFilePath, ".c");
+		if (outputFilePath[0] == 0)
+		{
+			strcpy(outputFilePath, inputFilePath);
+			changeFileExtension(outputFilePath, ".c");
+			printf("The output file has been set to \"%s\"\n", outputFilePath);
+		}
 		
-		strcpy(listFilePath, outputFilePath);		
-		changeFileExtension(listFilePath, ".lis");
-		
-		strcpy(tempFilePath, outputFilePath);
-		changeFileExtension(tempFilePath, ".tmp");
+		returnVal = getOutputFile(outputFilePath, inputFilePath, (const char**)restrictExtsn, 3);
 
-		InputFilePtr = fileOpen(inputFilePath, "rb");
-		OutputFilePtr = fileOpen(outputFilePath, "w");
-		ListFilePtr = fileOpen(listFilePath, "w");
-		TempFilePtr = fileOpen(tempFilePath, "w+");
+		// Checks if still valid
+		if (returnVal == 0)
+		{
+			strcpy(listFilePath, outputFilePath);
+			changeFileExtension(listFilePath, ".lis");
 
-		if (InputFilePtr == NULL || OutputFilePtr == NULL || ListFilePtr == NULL || TempFilePtr == NULL)
-			returnVal = 1;
+			strcpy(tempFilePath, outputFilePath);
+			changeFileExtension(tempFilePath, ".tmp");
+
+			InputFilePtr = fileOpen(inputFilePath, "rb");
+			OutputFilePtr = fileOpen(outputFilePath, "w");
+			ListFilePtr = fileOpen(listFilePath, "w");
+			TempFilePtr = fileOpen(tempFilePath, "w+");
+
+			if (InputFilePtr == NULL || OutputFilePtr == NULL || ListFilePtr == NULL || TempFilePtr == NULL)
+				returnVal = 1;
+			else
+			{
+				printf("\n\nUSING INPUT FILE: %s", inputFilePath);
+				printf("\nUSING OUTPUT FILE: %s", outputFilePath);
+				printf("\nUSING LISTING OUTPUT FILE: %s", listFilePath);
+				printf("\nUSING TEMPORARY OUTPUT FILE: %s\n", tempFilePath);
+			}
+		}
 	}
 
+	free(restrictExtsn[3]);
+	free(restrictExtsn[2]);
 	free(restrictExtsn[1]);
 	free(restrictExtsn[0]);
 	free(restrictExtsn);
@@ -105,12 +119,12 @@ int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* t
 }
 
 // Closes all of the files
-void end(char* inputFilePath, char* outputFilePath, char* listFilePath, char* tempFilePath)
+void end()
 {
-	fileClose(InputFilePtr, inputFilePath);
-	fileClose(OutputFilePtr, outputFilePath);
-	fileClose(ListFilePtr, listFilePath);
-	fileClose(TempFilePtr, tempFilePath);
+	fclose(InputFilePtr);
+	fclose(OutputFilePtr);
+	fclose(ListFilePtr);
+	fclose(TempFilePtr);
 }
 
 // Gets parameters from the command prompt (if they exist) and stores them in "inputFilePath" and "outputFilePath" respectively

@@ -1,13 +1,19 @@
-begin							--a program
-a:= BB - 314 * c;
-f := -6;
+begin						 --a program
 
-if (true) then
- a := !BB;
-endif
-
-while (false)
-	g := -8;
+b := 2;
+a := 0;
+while (!(a < b))
+	write(a);
+	a := a + 1;
 endwhile
+
+q := q * -3412340;
+if (true) then
+	r := a;
+	read(a, b, c, d);
+else
+	a := r;
+	write(a + b * 5, b, c, d);
+endif
 
 end

@@ -7,10 +7,16 @@
 #include <string.h>
 #include <math.h>
 
-//
-void scannerInit(FILE* inputFilePtr, FILE* outputFilePtr, FILE* listFilePtr);
+// Gives the scanner necessary access to the input file, and list file
+void scannerInit(FILE* inputFilePtr, FILE* listFilePtr);
 
-//
+// Sets the list file writing to be skipped
+void pauseListFile();
+
+// Sets the list file writing to not be skipped
+void unpauseListFile();
+
+// Adds "error" to an error buffer that gets printed to the "listFilePtr" file
 void addToErrorBuffer(const char* error);
 
 //Returns the current total of lexical errors found in the input file
@@ -40,7 +46,5 @@ int checkReserved(const char* buffer);
 int scanner(int destructive);
 
 void updateListFile(int token);
-
-void updateOutputFile(int token);
 
 #endif

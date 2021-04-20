@@ -5,7 +5,8 @@
 #include "generator.h"
 #include <string.h>
 
-//
+// Compiles "MICRO" code (from the "in" file) into "C" code (to the "out" file)
+// Uses the "list" file for syntactic and lexical error printing
 void compile(FILE* in, FILE* out, FILE* list, FILE* temp);
 
 // Safely concatenates the characters in "TokenBuffer" 
@@ -32,10 +33,10 @@ int match(int token);
 int nextToken();
 
 //Parser starts here
-// 40. <system goal> -> <program> SCANEOF;
+// 40. <system goal> -> <program> SCANEOF #genFinish
 void systemGoal();
 
-// 41. <ident> -> ID #processID 
+// 41. <ident> -> ID #processID
 struct ExprRecord ident();
 
 // 1. <program> -> #genStart BEGIN <statement list> END
@@ -45,14 +46,14 @@ void program();
 void statementList();
 
 // 3. <statement> -> ID ASSIGNOP <expression> #processAssign;
-// 4. <statement> -> WRITE LPAREN <idlist> RPAREN;
+// 4. <statement> -> READ LPAREN <idlist> RPAREN;
 // 5. <statement> -> WRITE LPAREN <exprlist> RPAREN;
-// 6. <statement> -> IF LPAREN <condition> RPAREN THEN <statementlist> <iftail>
-// 9. <statement> -> WHILE LPAREN <condition> RPAREN {<statementlist>} ENDWHILE
+// 6. <statement> -> IF LPAREN <condition> RPAREN THEN #processIf {<statementlist>} <iftail>
+// 9. <statement> -> WHILE LPAREN <condition> RPAREN #processWhile {<statementlist>} ENDWHILE #processEndwhile
 void statement();
 
-// 7. <IFTail> -> ELSE <statementlist> ENDIF
-// 8. <IFTail> -> ENDIF
+// 7. <IFTail> -> ELSE #processElse <statementlist> ENDIF #processEndif
+// 8. <IFTail> -> ENDIF #processEndif
 void iftail();
 
 // 10. <id list> -> <ident> #readID {, <id list>}
@@ -60,6 +61,7 @@ void idlist();
 
 // 11. <expr list> -> <expression> #writeExpr {, <expr list>}
 void exprlist();
+
 
 // 12. <expression> -> <term> {<add op> <term> #genInfix}
 void expression(struct ExprRecord* result);

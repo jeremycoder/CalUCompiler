@@ -14,13 +14,16 @@ char FatalError = 0;
 
 FILE* OutputFilePtr;
 FILE* ListFilePtr;
+FILE* InputFilePtr;
 
-//
+// Compiles "MICRO" code (from the "in" file) into "C" code (to the "out" file)
+// Uses the "list" file for syntactic and lexical error printing
 void compile(FILE* in, FILE* out, FILE* list, FILE* temp)
 {
 	OutputFilePtr = out;
 	ListFilePtr = list;
-	scannerInit(in, out, list);
+	InputFilePtr = in;
+	scannerInit(in, list);
 	generatorInit(out, temp);
 	systemGoal();
 }
@@ -125,11 +128,8 @@ void systemGoal()
 	if (match(SCANEOF) == 0) // Expected end of file
 	{
 		reportError("End of File");
-		printf("\n\nA FATAL ERROR OCCURRED\n\n");
 		FatalError = 1;
 	}
-
-	genFinish();
 
 	char tempBuffer[50];
 
@@ -138,29 +138,29 @@ void systemGoal()
 
 	tempBuffer[0] = '\0';
 
-	sprintf(tempBuffer, "\nThere are %d syntax errors.", getTotalSynErrors());
+	sprintf(tempBuffer, "\nThere are %d syntax errors.\n", getTotalSynErrors());
 	fputs(tempBuffer, ListFilePtr);
 
 	tempBuffer[0] = '\0';
 
 	if (getParserErrorState() == 1)
 	{
-		sprintf(tempBuffer, "\nThe program did not finish compilation.");
+		sprintf(tempBuffer, "The program did not finish compilation.");
 		fputs(tempBuffer, ListFilePtr);
+		generate("/* ", tempBuffer, "*/", "", "", 0);
 	}
 	else
 	{
 		if (getTotalLexErrors() != 0 || getTotalSynErrors() != 0)
-		{
-			sprintf(tempBuffer, "\nThe program compiled with a total of %d errors.", (getTotalLexErrors() + getTotalSynErrors()));
-			fputs(tempBuffer, ListFilePtr);
-		}
+			sprintf(tempBuffer, "The program compiled with a total of %d errors.", (getTotalLexErrors() + getTotalSynErrors()));
 		else
-		{
-			sprintf(tempBuffer, "\nThe program compiled with no errors.");
-			fputs(tempBuffer, ListFilePtr);
-		}
+			sprintf(tempBuffer, "The program compiled with no errors.");
 	}
+
+	fputs(tempBuffer, ListFilePtr);
+	setCompilationMsg(tempBuffer);
+
+	genFinish();
 }
 
 // 41. <ident> -> ID #processID
@@ -223,13 +223,15 @@ void statementList()
 		statement();
 
 	} while (NoMoreStatements == -1);
+
+	NoMoreStatements = -1;
 }
 
 // 3. <statement> -> ID ASSIGNOP <expression> #processAssign;
-// 4. <statement> -> WRITE LPAREN <idlist> RPAREN;
+// 4. <statement> -> READ LPAREN <idlist> RPAREN;
 // 5. <statement> -> WRITE LPAREN <exprlist> RPAREN;
-// 6. <statement> -> IF LPAREN <condition> RPAREN THEN <statementlist> <iftail>
-// 9. <statement> -> WHILE LPAREN <condition> RPAREN {<statementlist>} ENDWHILE
+// 6. <statement> -> IF LPAREN <condition> RPAREN THEN #processIf {<statementlist>} <iftail>
+// 9. <statement> -> WHILE LPAREN <condition> RPAREN #processWhile {<statementlist>} ENDWHILE #processEndwhile
 void statement()
 {
 	NoMoreStatements = -1; //We have statements to process	
@@ -277,7 +279,7 @@ void statement()
 		break;
 	}
 
-	// 4. <statement> -> WRITE LPAREN <idlist> RPAREN;
+	// 4. <statement> -> READ LPAREN <idlist> RPAREN;
 	case READ:
 	{
 		match(READ);
@@ -365,7 +367,7 @@ void statement()
 		break;
 	}
 
-	// 6. <statement> -> IF LPAREN <condition> RPAREN THEN <statementlist> <iftail>
+	// 6. <statement> -> IF LPAREN <condition> RPAREN THEN #processIf {<statementlist>} <iftail>
 	case IF:
 	{
 		match(IF);
@@ -380,9 +382,8 @@ void statement()
 			reportError("'('");
 		}
 				
-		struct ExprRecord exp; //temp expression record
-		exp = condition();
-		processIf(exp);		
+		struct ExprRecord expr; //temp expression record
+		expr = condition();
 
 		t = nextToken();
 
@@ -406,14 +407,14 @@ void statement()
 			reportError("\"THEN\"");
 		}
 
+		processIf(&expr);
+
 		statementList();
-		NoMoreStatements = -1;
 		iftail();
 		break;
 	}
 
-	// 9. <statement> -> WHILE LPAREN <condition> RPAREN {<statementlist>} ENDWHILE
-	// 9. <statement> -> WHILE LPAREN <condition> RPAREN {<statementlist>} ENDWHILE
+	// 9. <statement> -> WHILE LPAREN <condition> RPAREN #processWhile {<statementlist>} ENDWHILE #processEndwhile
 	case WHILE:
 	{
 		match(WHILE);
@@ -430,12 +431,15 @@ void statement()
 
 		struct ExprRecord expr;
 
+		long conditionPos = ftell(InputFilePtr);
+		long afterConditionPos;
+		int conditionError, tempNum = getTempNum();
+
 		expr = condition();
 
-		processWhile(&expr);
+		conditionError = ErrStateFlag;
 
 		t = nextToken();
-
 		if (t == RPAREN)
 		{
 			match(RPAREN);
@@ -445,9 +449,24 @@ void statement()
 			reportError("')'");
 		}
 
+		processWhile(&expr);
+
 		statementList();
 
-		generate("}\n", "", "", "", "", "");
+		// Checks if there were errors in the condition
+		if (conditionError == 0 && expr.type == TEMPEXPR)
+		{
+			afterConditionPos = ftell(InputFilePtr);
+			fseek(InputFilePtr, conditionPos, SEEK_SET);
+			setTempNum(tempNum);
+			pauseListFile();
+			// Reprocesses the condition so that it may be placed at the end of the while loop to adjust for variable changes possibly performed
+			condition();
+			unpauseListFile();
+			fseek(InputFilePtr, afterConditionPos, SEEK_SET);
+		}
+
+		processEndwhile();
 
 		t = nextToken();
 
@@ -483,23 +502,22 @@ void statement()
 	}
 }
 
-// 7. <IFTail> -> ELSE <statementlist> ENDIF
-// 8. <IFTail> -> ENDIF
+// 7. <IFTail> -> ELSE #processElse <statementlist> ENDIF #processEndif
+// 8. <IFTail> -> ENDIF #processEndif
 void iftail()
 {
 	int t = nextToken();
 
 	switch (t)
 	{
-	// 7. <IFTail> -> ELSE <statementlist> ENDIF
+	// 7. <IFTail> -> ELSE #processElse <statementlist> ENDIF #processEndif
 	case ELSE:
 		match(ELSE);
 		
 		//generate else statement
-		generate(" } ", " else { ", "", "", "", "");
-		
+		processElse();
+
 		statementList();
-		NoMoreStatements = -1;
 		t = nextToken();
 
 		if (t == ENDIF)
@@ -512,7 +530,7 @@ void iftail()
 		}
 		break;
 
-	// 8. <IFTail> -> ENDIF
+	// 8. <IFTail> -> ENDIF #processEndif
 	case ENDIF:
 		match(ENDIF);
 		break;
@@ -522,7 +540,8 @@ void iftail()
 		break;		
 		
 	}
-	generate("}\n", "", "", "", "", "");
+	removeTab();
+	processEndif();
 }
 
 // 10. <id list> -> <ident> #readID {, <id list>}
@@ -818,50 +837,67 @@ void lprimary(struct ExprRecord* result)
 	{
 	// 28. <lprimary> -> INTLITERAL #processLiteral
 	case INTLITERAL:
+	{
 		match(INTLITERAL);
 		*result = processLiteral(getTokenBuffer());
 		break;
+	}
 
 	// 29. <lprimary> -> <ident>
 	case ID:
+	{
 		*result = ident();
 		break;
+	}
 
 	// 30. <lprimary> -> LPAREN <condition> RPAREN
 	case LPAREN:
+	{
+		struct ExprRecord tempExpr;
+		
 		match(LPAREN);
-		*result = condition();
-		match(RPAREN);
+		tempExpr = condition();
+		if (nextToken() == RPAREN)
+			match(RPAREN);
+		
+		(*result).type = tempExpr.type;
+		(*result).expression[0] = '(';
+		strcpy(((*result).expression + 1), tempExpr.expression);
+		strcat(((*result).expression), ")");
+		
 		break;
+	}
 
 	// 31. <lprimary> -> FALSEOP #processLiteral
 	case FALSEOP:
+	{
 		match(FALSEOP);
-		char temp[15];
-		strcpy(temp, "0\0");		
-		*result = processLiteral(temp); 
+		*result = processLiteral("0");
 		break;
+	}
 
 	// 32. <lprimary> -> TRUEOP #processLiteral
 	case TRUEOP:
+	{
 		match(TRUEOP);
-		char temp1[15];
-		strcpy(temp1, "1");		
-		*result = processLiteral(temp1); 
+		*result = processLiteral("1");
 		break;
+	}
 
 	// 33. <lprimary> -> NULLOP #processLiteral
 	case NULLOP:
+	{
 		match(NULLOP);
-		char temp2[15];
-		strcpy(temp2, "0\0");
-		*result = processLiteral(temp2); 
+		*result = processLiteral("0");
 		break;
+	}
 
 	default:
+	{
 		reportError("integer, identifier, condition, falseop, trueop, or nullop");
 		ErrStateFlag = 1;
 		break;
+	}
 	}
 }
 
@@ -879,7 +915,7 @@ void relop(struct OpRecord* result)
 	if (t == LESSOP || t == LESSEQUALOP || t == GREATEROP || t == GREATEREQUALOP || t == EQUALOP || t == NOTEQUALOP)
 	{
 		match(t);
-		*result = processOp(getTokenBuffer());
+		*result = processOp(t);
 	}
 	else
 	{

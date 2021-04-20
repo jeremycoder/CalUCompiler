@@ -7,7 +7,6 @@ int LexicalErrNum;
 
 FILE* InputFilePtr;
 FILE* ListFilePtr;
-FILE* OutputFilePtr;
 
 //To hold syntactic errors
 char ExtraErrBuffer[ERROR_BUFFER_SIZE] = { '\0' };
@@ -16,19 +15,31 @@ char ExtraErrBuffer[ERROR_BUFFER_SIZE] = { '\0' };
 char TokenBuffer[TOKEN_BUFFER_SIZE] = { '\0' };
 
 int CurLineNum;
+int PauseListFile = 0;
 
 //To hold scanning errors
 char LexErrBuffer[ERROR_BUFFER_SIZE] = { '\0' };
 
-//
-void scannerInit(FILE* inputFilePtr, FILE* outputFilePtr, FILE* listFilePtr)
+// Gives the scanner necessary access to the input file, and list file
+void scannerInit(FILE* inputFilePtr, FILE* listFilePtr)
 {
 	InputFilePtr = inputFilePtr;
-	OutputFilePtr = outputFilePtr;
 	ListFilePtr = listFilePtr;
 }
 
-//
+// Sets the list file writing to be skipped
+void pauseListFile()
+{
+	PauseListFile = 1;
+}
+
+// Sets the list file writing to not be skipped
+void unpauseListFile()
+{
+	PauseListFile = 0;
+}
+
+// Adds "error" to an error buffer that gets printed to the "listFilePtr" file
 void addToErrorBuffer(const char* error)
 {
 	strncat(ExtraErrBuffer, error, ERROR_BUFFER_SIZE - strlen(ExtraErrBuffer));
@@ -479,63 +490,65 @@ int scanner(int destructive)
 
 
 void updateListFile(int token)
-{
-
-	if (token == SCANEOF)
+{	
+	if (PauseListFile == 0)
 	{
-		strcpy(TokenBuffer, "EOF");
-		fputs("\n", ListFilePtr);
-		fputs(ExtraErrBuffer, ListFilePtr);
-		ExtraErrBuffer[0] = '\0';
-	}
-	//Write "tokenBuffer" to listing file ("tokenBuffer" now gets every character copied into to and emptied before the next token)
-	if (fputs(TokenBuffer, ListFilePtr))
-	{
-		printf("\nERROR writing to listing file...");
-	}
-	// Write the error into a buffer for later writing to the list file
-	if (token == ERROR)
-	{
-		char temp[10];
-		itoa(CurLineNum, temp, 10);
-
-		LexicalErrNum++;
-		strncat(LexErrBuffer, "Lexical error on line ", ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
-		strncat(LexErrBuffer, temp, ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
-		strncat(LexErrBuffer, ": Unexpected token '", ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
-		strncat(LexErrBuffer, TokenBuffer, ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
-		strncat(LexErrBuffer, "'\n", ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
-		if (strlen(LexErrBuffer) >= ERROR_BUFFER_SIZE)
-			strcpy(LexErrBuffer, "Many unexpected tokens were found!"); // For cases in which the error buffer is too small
-	}
-	//If reached end of line, print possible errors and new line number to listing file
-	if (TokenBuffer[strlen(TokenBuffer) - 1] == '\n')
-	{
-		fputs(LexErrBuffer, ListFilePtr);
-		LexErrBuffer[0] = '\0';
-
-		fputs(ExtraErrBuffer, ListFilePtr);
-		ExtraErrBuffer[0] = '\0';
-
-		CurLineNum++;
-
-		int tempSize = (sizeof(char) * 3 + sizeof(char) * (log(CurLineNum) / log(10) + 1));
-		// Allocates just enough space for the line number, a period, and a tab (and a NULL terminator) in the form of a character string
-		char* temp = malloc(tempSize);
-
-		//Converts the line number to a string and stores it in "listingBuffer"
-		itoa(CurLineNum, temp, 10);
-		//Puts the period and tab after the line number
-		strcat(temp, ".\t");
-
-		temp[tempSize / sizeof(char) - 1] = '\0'; // NULL terminates the string
-
-		// Writes the line number to the listing file
-		if (fputs(temp, ListFilePtr) != 0)
+		if (token == SCANEOF)
+		{
+			strcpy(TokenBuffer, "EOF");
+			fputs("\n", ListFilePtr);
+			fputs(ExtraErrBuffer, ListFilePtr);
+			ExtraErrBuffer[0] = '\0';
+		}
+		//Write "tokenBuffer" to listing file ("tokenBuffer" now gets every character copied into to and emptied before the next token)
+		if (fputs(TokenBuffer, ListFilePtr))
 		{
 			printf("\nERROR writing to listing file...");
 		}
+		// Write the error into a buffer for later writing to the list file
+		if (token == ERROR)
+		{
+			char temp[10];
+			itoa(CurLineNum, temp, 10);
+	
+			LexicalErrNum++;
+			strncat(LexErrBuffer, "Lexical error on line ", ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
+			strncat(LexErrBuffer, temp, ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
+			strncat(LexErrBuffer, ": Unexpected token '", ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
+			strncat(LexErrBuffer, TokenBuffer, ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
+			strncat(LexErrBuffer, "'\n", ERROR_BUFFER_SIZE - strlen(LexErrBuffer));
+			if (strlen(LexErrBuffer) >= ERROR_BUFFER_SIZE)
+				strcpy(LexErrBuffer, "Many unexpected tokens were found!"); // For cases in which the error buffer is too small
+		}
+		//If reached end of line, print possible errors and new line number to listing file
+		if (TokenBuffer[strlen(TokenBuffer) - 1] == '\n')
+		{
+			fputs(LexErrBuffer, ListFilePtr);
+			LexErrBuffer[0] = '\0';
 
-		free(temp);
+			fputs(ExtraErrBuffer, ListFilePtr);
+			ExtraErrBuffer[0] = '\0';
+
+			CurLineNum++;
+
+			int tempSize = (sizeof(char) * 3 + sizeof(char) * (log(CurLineNum) / log(10) + 1));
+			// Allocates just enough space for the line number, a period, and a tab (and a NULL terminator) in the form of a character string
+			char* temp = malloc(tempSize);
+
+			//Converts the line number to a string and stores it in "listingBuffer"
+			itoa(CurLineNum, temp, 10);
+			//Puts the period and tab after the line number
+			strcat(temp, ".\t");
+
+			temp[tempSize / sizeof(char) - 1] = '\0'; // NULL terminates the string
+
+			// Writes the line number to the listing file
+			if (fputs(temp, ListFilePtr) != 0)
+			{
+				printf("\nERROR writing to listing file...");
+			}
+
+			free(temp);
+		}
 	}
 }

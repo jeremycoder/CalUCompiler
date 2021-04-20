@@ -1,7 +1,7 @@
 #include "file_util.h"
 
 // Returns 1 if the file extension in "filename" exists
-// Returns NULL if the file extension in "filename" does not exist
+// Returns 0 if the file extension in "filename" does not exist
 int hasFileExtension(const char* filename)
 {
     int returnVal = 0;
@@ -65,22 +65,8 @@ FILE* fileOpen(const char* filename, const char* mode)
         printf("\nFailed to open %s", filename);
         perror("fopen()");
     }
-    else
-    {
-        printf("\nSuccessfully opened %s", filename);
-    }
 
     return file;
-}
-
-// Checks if the filePtr is pointing to anything and closes the file while displaying a close message
-void fileClose(FILE* filePtr, char* filename)
-{
-    if (filePtr != NULL)
-    {
-        printf("\nClosing %s", filename);
-        fclose(filePtr);
-    }
 }
 
 // Copies the data in "inputFile" into "outputFile"
@@ -294,6 +280,11 @@ int getInputFile(char* filePath, const char** restrictedExtensions, const int re
         }
         else
         {
+            if (hasFileExtension(filePath) == 0)
+            {
+                changeFileExtension(filePath, ".in");
+                printf("\nNo extension was entered for the input file. Searching for \"%s\"\n", filePath);
+            }
             getFileExtension(tempBuff, filePath);
             int i;
             // Ensures that "filePath"'s extension does not match any of the restricted extensions
@@ -320,6 +311,7 @@ int getInputFile(char* filePath, const char** restrictedExtensions, const int re
             }
         }
     }
+    printf("\n");
 
     return invalid;
 }
@@ -360,6 +352,7 @@ int getOutputFile(char* filePath, const char* defaultDir, const char** restricte
 
         getFileExtension(tempBuff, filePath);
         int i;
+
         // Ensures that "filePath"'s extension does not match any of the restricted extensions
         for (i = 0; i < resExtCount; i++)
         {
@@ -386,16 +379,16 @@ int getOutputFile(char* filePath, const char* defaultDir, const char** restricte
             // A file with that name already exists
             else
             {
-                printf("\nA file with the name %s already exists.\n", filePath);
-                printf("\nType 'o' to back it up and then overwrite, 'n' to type a new name, or 'q' to quit: ");
+                printf("A file with the name %s already exists.\n", filePath);
+                printf("\nType 'o' to back it up first, 'n' to type a new name, or 'q' to quit: ");
                 getLine(decision, 1);
 
                 // If nothing was entered then the input file's name is used for the output file
                 if (decision[0] == '\0')
                 {
                     strcpy(filePath, defaultDir);
-                    changeFileExtension(filePath, ".out");
-                    printf("\nA decision was not entered. Defaulting the name to %s\n", filePath);
+                    changeFileExtension(filePath, ".c");
+                    printf("\nA decision was not entered. Defaulting the file to %s\n", filePath);
                 }
                 // Checks if the user wants to enter a new filename
                 else if (decision[0] == 'n')
@@ -413,8 +406,8 @@ int getOutputFile(char* filePath, const char* defaultDir, const char** restricte
                     // Checks if a backup file with that name already exists
                     if (fileExists(backFile))
                     {
-                        printf("\nA file with the name %s already exists.\n", backFile);
-                        printf("\nType 'o' to overwrite the backup file, 'q' to quit, or enter nothing to type a new output filename: ");
+                        printf("A file with the name %s already exists.\n", backFile);
+                        printf("Type 'o' to overwrite the backup file, 'q' to quit, or enter nothing to type a new output filename: ");
                         decision[0] = '\0';
                         flushInputs();
                         getLine(decision, 1);
@@ -426,7 +419,7 @@ int getOutputFile(char* filePath, const char* defaultDir, const char** restricte
                         FILE* outputFilePtr = fopen(filePath, "r");
 
                         copyFileContents(outputFilePtr, backupFilePtr);
-                        printf("\nBacked up %s to %s\n", filePath, backFile);
+                        printf("\nBacked up %s to %s", filePath, backFile);
 
                         fclose(backupFilePtr);
                         fclose(outputFilePtr);
