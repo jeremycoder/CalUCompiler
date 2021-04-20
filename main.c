@@ -60,7 +60,7 @@ int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* t
 
 	strcpy(restrictExtsn[0], ".lis");
 	strcpy(restrictExtsn[1], ".tmp");
-	strcpy(restrictExtsn[2], ".out");
+	strcpy(restrictExtsn[2], ".c");
 
 	// Displays our group title
 	printf("\n-----------------------------------\n");
@@ -68,17 +68,23 @@ int start(char* inputFilePath, char* outputFilePath, char* listFilePath, char* t
 	printf("-----------------------------------\n");
 	printf("\n");
 
-	returnVal = getInputFile(inputFilePath, (const char**)restrictExtsn, 2);
-	if (returnVal == 0)
+	returnVal = getInputFile(inputFilePath, (const char**)restrictExtsn, 3);
+	
+	/*if (returnVal == 0)
 	{
-		strcpy(restrictExtsn[1], ".in");
-		returnVal = getOutputFile(outputFilePath, inputFilePath, (const char**)restrictExtsn, 2);
-	}
+		//strcpy(restrictExtsn[1], ".in");
+		//returnVal = getOutputFile(outputFilePath, inputFilePath, (const char**)restrictExtsn, 2);
+	}*/
+	
 	// Checks if still valid
 	if (returnVal == 0)
 	{
-		strcpy(listFilePath, outputFilePath);
+		strcpy(outputFilePath, inputFilePath);
+		changeFileExtension(outputFilePath, ".c");
+		
+		strcpy(listFilePath, outputFilePath);		
 		changeFileExtension(listFilePath, ".lis");
+		
 		strcpy(tempFilePath, outputFilePath);
 		changeFileExtension(tempFilePath, ".tmp");
 
