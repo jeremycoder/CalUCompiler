@@ -347,14 +347,14 @@ int getOutputFile(char* filePath, const char* defaultDir, const char** restricte
         if (filePath[0] == '\0')
         {
             strcpy(filePath, defaultDir);
-            changeFileExtension(filePath, ".out");
+            changeFileExtension(filePath, ".c");
             printf("\nNo output file name was entered. The name was defaulted to %s\n", filePath);
         }
         // Checks if there was anything entered and adds an extension if there was a file name entered
         if (!hasFileExtension(filePath))
         {
             printf("\nOutput file is missing an extension.\n");
-            changeFileExtension(filePath, ".out");
+            changeFileExtension(filePath, ".c");
             printf("The output file has been defaulted to %s\n", filePath);
         }
 

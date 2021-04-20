@@ -1,3 +1,6 @@
 begin							--a program
-a:= BB & A;
+a:= BB - 314 * c;
+w := true;
+x := null;
+g := false;
 end

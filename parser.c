@@ -155,6 +155,11 @@ void systemGoal()
 			sprintf(tempBuffer, "\nThe program compiled with a total of %d errors.", (getTotalLexErrors() + getTotalSynErrors()));
 			fputs(tempBuffer, ListFilePtr);
 		}
+		else
+		{
+			sprintf(tempBuffer, "\nThe program compiled with no errors.");
+			fputs(tempBuffer, ListFilePtr);
+		}
 	}
 }
 
@@ -817,19 +822,26 @@ void lprimary(struct ExprRecord* result)
 	// 31. <lprimary> -> FALSEOP #processLiteral
 	case FALSEOP:
 		match(FALSEOP);
-		*result = processLiteral(getTokenBuffer()); // Was processOp in the lesson but is that correct?
+		char temp[15];
+		strcpy(temp, "0\0");
+		printf("\n\ntemp: %s", temp);
+		*result = processLiteral(temp); 
 		break;
 
 	// 32. <lprimary> -> TRUEOP #processLiteral
 	case TRUEOP:
 		match(TRUEOP);
-		*result = processLiteral(getTokenBuffer()); // Was processOp in the lesson but is that correct?
+		char temp1[15];
+		strcpy(temp1, "1\0");
+		*result = processLiteral(temp1); 
 		break;
 
 	// 33. <lprimary> -> NULLOP #processLiteral
 	case NULLOP:
 		match(NULLOP);
-		*result = processLiteral(getTokenBuffer()); // Was processOp in the lesson but is that correct?
+		char temp2[15];
+		strcpy(temp2, "0\0");
+		*result = processLiteral(temp2); 
 		break;
 
 	default:

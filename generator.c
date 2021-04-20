@@ -1,3 +1,4 @@
+#include <time.h>
 #include "generator.h"
 
 #define SYMBOL_SIZE 15
@@ -34,20 +35,39 @@ void generate(char* s1, char* s2, char* s3, char* s4, char* s5, char* s6)
 
 // #assign
 void processAssign(struct ExprRecord* leftSide, struct ExprRecord* rightSide)
-{
+{	
+	char temp[100];
+	char temp2[100];
+	strcpy(temp, (*leftSide).expression);
+	strcpy(temp2, (*rightSide).expression);	
 	
+	//Is target leftSide or is source rightSide
+	generate(temp, " = ", temp2, ";", " ", " ");	
+
 }
 
-// #read_id
+// #read_id Generates code for read statement
 void readID(struct ExprRecord* id)
 {
-
+	char temp[100]; //create temp string
+	strcpy(temp, "scanf(\"%d\", &"); //add scanf code to temp string
+	strcat(temp, (*id).expression); //add id to string
+	strcat(temp, ");\n"); //add last part of scanf code to string	
+	
+	//write scanf to output file
+	fputs(temp, OutputFile);	
 }
 
 // #write_expr
 void writeExpr(struct ExprRecord* expr)
 {
-
+	char temp[100]; //create temp string
+	strcpy(temp, "printf(\"%d\", "); //add scanf code to temp string
+	strcat(temp, (*expr).expression); //add expr to string
+	strcat(temp, ");\n"); //add last part of scanf code to string	
+	
+	//write scanf to output file
+	fputs(temp, OutputFile);	
 }
 
 //-----END FOR GROUP MEMBER 1-----
@@ -104,6 +124,7 @@ void clearTable()
 			if (symbols[i] != 0)
 				free(symbols[i]);
 		}
+		tableSize = 0;
 		free(symbols);
 	}
 }
@@ -169,16 +190,39 @@ void checkID(char* var)
 // #start
 void genStart()
 {
-	// Write current date and time to output file here
-
-	fputs("#include <stdio.h>\n\nint main()\n{\n", OutputFile);
-}
-
-// #gen_infix (THIS IS PROBABLY A BIG ONE)
-struct ExprRecord genInfix(struct ExprRecord* leftSide, struct OpRecord* operator, struct ExprRecord* rightSide)
-{
+	time_t myTime;
+	myTime = time(NULL);
+	
+	fputs("//Current Date and Time:\n//", OutputFile);
+	fputs(ctime(&myTime), OutputFile);
+	fputs("\n#include <stdio.h>\n\nint main()\n{\n", OutputFile);
+	
+	//Initialize symbol table
+	clearTable();
+	//Initialize temp counter
+	TempNum = 0;
+	//Initialize line counter - done in parser
 	
 }
+
+
+// #gen_infix //Generates the code for the infox semantic record
+struct ExprRecord genInfix(struct ExprRecord* leftSide, struct OpRecord* operator, struct ExprRecord* rightSide)
+{	
+	//Creates a temp expression record and sets its kind to "TEMPEXPR"
+	struct ExprRecord expr;
+	expr.type = TEMPEXPR;	
+	
+	//Sets it's string to a new temp ID using getTemp()
+	strcpy(expr.expression, getTemp());
+	
+	//Uses generate to assign the left, right, and operand expressions to the temp EX: Temp5 = X + 7
+	generate(expr.expression, " = ", leftSide->expression, operator->record, rightSide->expression, ";\n");
+	
+	//Returns the temp expression record
+	return expr;
+}
+
 
 //-----END FOR GROUP MEMBER 3-----
 
@@ -187,19 +231,75 @@ struct ExprRecord genInfix(struct ExprRecord* leftSide, struct OpRecord* operato
 // #process_literal
 struct ExprRecord processLiteral(char* literal)
 {
+	struct ExprRecord tempRec;
+	tempRec.type = INTLITERAL;	
 	
+	
+	strcpy(tempRec.expression, literal);
+	
+	return tempRec;	
 }
 
 // #process_op
 struct OpRecord processOp(int operator)
 {
+	struct OpRecord op;
+	
+	switch (operator)
+	{
+	case EQUALOP:
+		strcpy(op.record, "==");
+		break;
+	case NOTEQUALOP:
+		strcpy(op.record, "!=");
+		break;
+	case GREATEROP:
+		strcpy(op.record, ">");
+		break;
+	case GREATEREQUALOP:
+		strcpy(op.record, ">=");
+		break;
+	case LESSOP:
+		strcpy(op.record, "<");
+		break;
+	case LESSEQUALOP:
+		strcpy(op.record, "<=");
+		break;
+	case ASSIGNOP:
+		strcpy(op.record, "=");
+		break;	
+	case PLUSOP:
+		strcpy(op.record, "+");
+		break;
+	case MINUSOP:
+		strcpy(op.record, "-");
+		break;
+	case DIVOP:
+		strcpy(op.record, "/");
+		break;
+	case MULTOP:
+		strcpy(op.record, "*");
+		break;
+	case NOTOP:
+		strcpy(op.record, "!");
+		break;
+	}
+	
+	return op;	
 	
 }
 
-// #process_id
+// #process_id //Generates code for ID semantic record
 struct ExprRecord processID(char* var)
 {
+	struct ExprRecord tempRec; //create temp str
 	
+	checkID(var); //checks if var is in symbol table	
+	
+	tempRec.type = IDEXPR;
+	strcpy(tempRec.expression, var);
+	
+	return tempRec;	
 }
 
 //-----END FOR GROUP MEMBER 4-----
